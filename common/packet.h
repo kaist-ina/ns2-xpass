@@ -198,9 +198,15 @@ static const packet_t PT_DCCP_RESET = 71;
 
         // M-DART packets
 static const packet_t PT_MDART = 72;
-	
+
+// XPass Packets
+static const packet_t PT_XPASS_CREDIT_REQUEST = 73;
+static const packet_t PT_XPASS_CREDIT_STOP = 74;
+static const packet_t PT_XPASS_CREDIT = 75;
+static const packet_t PT_XPASS_DATA = 76;
+
         // insert new packet types here
-static packet_t       PT_NTYPE = 73; // This MUST be the LAST one
+static packet_t       PT_NTYPE = 77; // This MUST be the LAST one
 
 enum packetClass
 {
@@ -416,6 +422,11 @@ public:
 		name_[PT_DCCP_CLOSE]="DCCP_Close";
 		name_[PT_DCCP_CLOSEREQ]="DCCP_CloseReq";
 		name_[PT_DCCP_RESET]="DCCP_Reset";
+
+    name_[PT_XPASS_CREDIT_REQUEST]="XPASS_CREDIT_REQUEST";
+    name_[PT_XPASS_CREDIT_STOP]="XPASS_CREDIT_STOP";
+    name_[PT_XPASS_CREDIT]="XPASS_CREDIT";
+    name_[PT_XPASS_DATA]="XPASS_DATA";
 
 		name_[PT_NTYPE]= "undefined";
 	}
