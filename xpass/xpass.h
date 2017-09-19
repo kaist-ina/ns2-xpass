@@ -4,17 +4,7 @@
 #include "agent.h"
 #include "packet.h"
 
-typedef enum xpass_type_ {
-  XPASS_CREDIT_REQUEST,
-  XPASS_CREDIT_STOP,
-  XPASS_CREDIT,
-  XPASS_DATA
-} XPassPktType;
-
 struct hdr_xpass {
-  // Packet type
-  XPassPktType pkt_type;
-  
   // To measure RTT  
   double credit_sent_time;
 
