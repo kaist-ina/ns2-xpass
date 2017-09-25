@@ -389,6 +389,9 @@ Classifier/Addr/MPLS set reroute_option_ 0
 Classifier/Addr/MPLS set control_driven_ 0
 Classifier/Addr/MPLS set data_driven_ 0
 
+# Multipath Classifier
+Classifier/MultiPath set symmetric_ false
+
 #
 # FEC models
 #
