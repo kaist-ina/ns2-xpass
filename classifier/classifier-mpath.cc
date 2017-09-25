@@ -50,21 +50,83 @@ static const char rcsid[] =
 #endif
 
 #include "classifier.h"
+#include "ip.h"
+
+static int slotcmp (const void *a, const void *b) {
+  return (int)(*(unsigned int *)a - *(unsigned int *)b);
+}
 
 class MultiPathForwarder : public Classifier {
 public:
-	MultiPathForwarder() : ns_(0) {} 
-	virtual int classify(Packet*) {
+	MultiPathForwarder() : ns_(0), symmetric_(0), sorted_maxslot_(-1) {
+    bind_bool("symmetric_", &symmetric_);
+  } 
+	virtual int classify(Packet* p) {
 		int cl;
-		int fail = ns_;
-		do {
-			cl = ns_++;
-			ns_ %= (maxslot_ + 1);
-		} while (slot_[cl] == 0 && ns_ != fail);
-		return cl;
+    if (symmetric_) {
+      // If there exists at least one slot and
+      // not yet sorted
+      if (maxslot_ > -1 && sorted_maxslot_ > maxslot_) {
+        qsort (slot_, maxslot_+1, sizeof(NsObject*), slotcmp);
+        sorted_maxslot_ = maxslot_;
+      }
+      hdr_ip* iph = hdr_ip::access(p);
+
+      struct hkey {
+        int src_dst_xor;
+        nsaddr_t lower_addr, higher_addr;
+        int fid;
+      };
+      struct hkey buf_;
+      nsaddr_t src = mshift(iph->saddr());
+      nsaddr_t dst = mshift(iph->daddr());
+      char* bufString;
+      int bufLength;
+      unsigned int ms_;
+
+      buf_.src_dst_xor = (src ^ dst) & 0x0000ffff;
+      buf_.lower_addr = (src < dst) ? src : dst;
+      buf_.higher_addr = (src > dst) ? src : dst;
+
+      bufString = (char*) &buf_;
+      bufLength = sizeof(hkey);
+      
+      ms_ = ((unsigned int)HashString(bufString, bufLength))
+             % (maxslot_ + 1);
+      int fail = ms_;
+      do {
+        cl = ms_++;
+        ms_ %= (maxslot_ + 1);
+      } while (slot_[cl] == 0 && ms_ != fail);
+    } else {
+		  int fail = ns_;
+		  do {
+		  	cl = ns_++;
+		  	ns_ %= (maxslot_ + 1);
+		  } while (slot_[cl] == 0 && ns_ != fail);
+    }
+    return cl;
 	}
 private:
 	int ns_;
+  // Symmetric Routing
+  // "True" for symmetric routing,
+  // "False" for asymmetric routing (default)
+  int symmetric_;
+  
+  int sorted_maxslot_;
+
+  static unsigned int
+  HashString(register const char *bytes, int length) {
+    register unsigned int result;
+    register int i;
+
+    result = 0;
+    for (i = 0; i < length; i++) {
+      result += (result<<3) + *bytes++;
+    }
+    return result;
+  }
 };
 
 static class MultiPathClass : public TclClass {
