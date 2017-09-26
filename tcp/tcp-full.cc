@@ -294,7 +294,7 @@ FullTcpAgent::command(int argc, const char*const* argv)
 			return (TCL_OK);
 		}
 		if (strcmp(argv[1], "advance-bytes") == 0) {
-			advance_bytes(atoi(argv[2]));
+			advance_bytes(atol(argv[2]));
 			return (TCL_OK);
 		}
 	}
