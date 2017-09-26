@@ -39,18 +39,19 @@
 #include "packet.h"
 
 //class EventTrace;
+typedef int64_t seq_t;
 
 struct hdr_tcp {
 #define NSA 3
 	double ts_;             /* time packet generated (at source) */
 	double ts_echo_;        /* the echoed timestamp (originally sent by
 	                           the peer) */
-	int seqno_;             /* sequence number */
+	seq_t seqno_;             /* sequence number */
 	int reason_;            /* reason for a retransmit */
-	int sack_area_[NSA+1][2];	/* sack blocks: start, end of block */
+	seq_t sack_area_[NSA+1][2];	/* sack blocks: start, end of block */
 	int sa_length_;         /* Indicate the number of SACKs in this  *
 	                         * packet.  Adds 2+sack_length*8 bytes   */ 
-	int ackno_;             /* ACK number for FullTcp */
+	seq_t ackno_;             /* ACK number for FullTcp */
 	int hlen_;              /* header len (bytes) for FullTcp */
 	int tcp_flags_;         /* TCP flags for FullTcp */
 	int last_rtt_;		/* more recent RTT measurement in ms, */
@@ -65,13 +66,13 @@ struct hdr_tcp {
 	/* per-field member functions */
 	double& ts() { return (ts_); }
 	double& ts_echo() { return (ts_echo_); }
-	int& seqno() { return (seqno_); }
+	seq_t& seqno() { return (seqno_); }
 	int& reason() { return (reason_); }
-	int& sa_left(int n) { return (sack_area_[n][0]); }
-	int& sa_right(int n) { return (sack_area_[n][1]); }
+	seq_t& sa_left(int n) { return (sack_area_[n][0]); }
+	seq_t& sa_right(int n) { return (sack_area_[n][1]); }
 	int& sa_length() { return (sa_length_); }
 	int& hlen() { return (hlen_); }
-	int& ackno() { return (ackno_); }  
+	seq_t& ackno() { return (ackno_); }  
 	int& flags() { return (tcp_flags_); }
 	int& last_rtt() { return (last_rtt_); }
 };
@@ -221,7 +222,7 @@ protected:
 				/* windows */
 
 	/* connection and packet dynamics */
-	virtual void output(int seqno, int reason = 0);
+	virtual void output(seq_t seqno, int reason = 0);
 	virtual void send_much(int force, int reason, int maxburst = 0);
 	virtual void newtimer(Packet*);
 	virtual void dupack_action();		/* do this on dupacks */
@@ -229,7 +230,7 @@ protected:
 	virtual void opencwnd();
 
 	void slowdown(int how);			/* reduce cwnd/ssthresh */
-	void ecn(int seqno);		/* react to quench */
+	void ecn(seq_t seqno);		/* react to quench */
 	virtual void set_initial_window();	/* set IW */
 	double initial_window();		/* what is IW? */
 	void newack(Packet*);
@@ -241,22 +242,22 @@ protected:
 	/* End of section of connection and packet dynamics.  */
 
 	/* General dynamic state. */
-	TracedInt t_seqno_;	/* sequence number */
+	seq_t t_seqno_;	/* sequence number */
 	TracedInt dupacks_;	/* number of duplicate acks */
-	TracedInt curseq_;	/* highest seqno "produced by app" */
-	TracedInt highest_ack_;	/* not frozen during Fast Recovery */
+	seq_t curseq_;	/* highest seqno "produced by app" */
+	seq_t highest_ack_;	/* not frozen during Fast Recovery */
 	TracedDouble cwnd_;	/* current window */
 	TracedInt ssthresh_;	/* slow start threshold */
-	TracedInt maxseq_;	/* used for Karn algorithm */
+	seq_t maxseq_;	/* used for Karn algorithm */
 				/* highest seqno sent so far */
-	int last_ack_;		/* largest consecutive ACK, frozen during
+	seq_t last_ack_;		/* largest consecutive ACK, frozen during
 				 *		Fast Recovery */
-	int recover_;		/* highest pkt sent before dup acks, */
+	seq_t recover_;		/* highest pkt sent before dup acks, */
 				/*   timeout, or source quench/ecn */
 	int last_cwnd_action_;	/* CWND_ACTION_{TIMEOUT,DUPACK,ECN} */
 	int count_;		/* used in window increment algorithms */
 	int rtt_active_;	/* 1 if a rtt sample is pending */
-	int rtt_seq_;		/* seq # of timed seg if rtt_active_ is 1 */
+	seq_t rtt_seq_;		/* seq # of timed seg if rtt_active_ is 1 */
 	double rtt_ts_;		/* time at which rtt_seq_ was sent */
 	double firstsent_;	/* When first packet was sent  --Allman */
 	double lastreset_;	/* W.N. Last time connection was reset - for */
@@ -514,7 +515,7 @@ protected:
         
 	/* TCP quiescence, reducing cwnd after an idle period */
 	void process_qoption_after_send() ;
-	void process_qoption_after_ack(int seqno) ;
+	void process_qoption_after_ack(seq_t seqno) ;
 	void reset_qoption();	/* for QOption with EnblRTTCtr_ */
 	void rtt_counting();	/* for QOption with EnblRTTCtr_ */
 	int QOption_ ; /* TCP quiescence option */
@@ -603,7 +604,7 @@ protected:
 	double vegastime() {
 		return(Scheduler::instance().clock() - firstsent_);
 	}
-	virtual void output(int seqno, int reason = 0);
+	virtual void output(seq_t seqno, int reason = 0);
 	virtual void recv_newack_helper(Packet*);
 	int vegas_expire(Packet*); 
 	void reset();

@@ -90,7 +90,7 @@ AckRecons::recv(Packet *pkt)
 {
 	double now = Scheduler::instance().clock();
 	hdr_tcp *tcph = hdr_tcp::access(pkt);
-	int &ack = tcph->seqno(), a, i;
+	seq_t &ack = tcph->seqno(), a, i;
 	Tcl& tcl = Tcl::instance();
 #ifdef DEBUG
 	printf("%f\tRecd ack %d\n", now, ack);

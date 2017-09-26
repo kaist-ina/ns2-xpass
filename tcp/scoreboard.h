@@ -48,11 +48,11 @@
 
 class ScoreBoardNode {
 public:
-	int seq_no_;		/* Packet number */
+	seq_t seq_no_;		/* Packet number */
 	char ack_flag_;         /* Acked by cumulative ACK */
 	char sack_flag_;        /* Acked by SACK block */
 	char retran_;           /* Packet retransmitted */
-	int snd_nxt_;		/* snd_nxt at time of retransmission */
+	seq_t snd_nxt_;		/* snd_nxt at time of retransmission */
 };
 
 class ScoreBoard {
@@ -61,14 +61,14 @@ class ScoreBoard {
 	virtual ~ScoreBoard(){if(SBN) delete[] SBN;}
 	virtual int IsEmpty () {return (length_ == 0);}
 	virtual void ClearScoreBoard (); 
-	virtual int GetNextRetran ();
+	virtual seq_t GetNextRetran ();
 	virtual void Dump();
-	virtual void MarkRetran (int retran_seqno);
-	virtual void MarkRetran (int retran_seqno, int snd_nxt);
-	virtual int UpdateScoreBoard (int last_ack_, hdr_tcp*);
+	virtual void MarkRetran (seq_t retran_seqno);
+	virtual void MarkRetran (seq_t retran_seqno, seq_t snd_nxt);
+	virtual int UpdateScoreBoard (seq_t last_ack_, hdr_tcp*);
 	virtual int CheckUpdate() {return (changed_);}
-	virtual int CheckSndNxt (hdr_tcp*);
-	virtual int GetNextUnacked (int seqno);
+	virtual seq_t CheckSndNxt (hdr_tcp*);
+	virtual seq_t GetNextUnacked (seq_t seqno);
         inline int IsChanged() { return changed_; }
 	
   protected:

@@ -117,7 +117,7 @@ SemanticPacketQueue::filterAcks(Packet *pkt, int replace_head)
 
 	Packet *p, *pp, *new_p;
 	hdr_tcp *tcph = hdr_tcp::access(pkt);
-	int &ack = tcph->seqno();
+	seq_t &ack = tcph->seqno();
 
 	hdr_ip *iph = hdr_ip::access(pkt);
 	for (p = head(), pp = p; p != 0; ) {

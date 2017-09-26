@@ -50,9 +50,9 @@
 #define SBNI SBN[i%sbsize_]
 
 // last_ack = TCP last ack
-int ScoreBoard::UpdateScoreBoard (int last_ack, hdr_tcp* tcph)
+int ScoreBoard::UpdateScoreBoard (seq_t last_ack, hdr_tcp* tcph)
 {
-	int i, sack_index, sack_left, sack_right;
+	seq_t i, sack_index, sack_left, sack_right;
 	int retran_decr = 0;
 	
 	changed_ = 0;
@@ -143,9 +143,9 @@ int ScoreBoard::UpdateScoreBoard (int last_ack, hdr_tcp* tcph)
 	}
 	return (retran_decr);
 }
-int ScoreBoard::CheckSndNxt (hdr_tcp* tcph)
+seq_t ScoreBoard::CheckSndNxt (hdr_tcp* tcph)
 {
-	int i, sack_index, sack_right;
+	seq_t i, sack_index, sack_right;
 	int force_timeout = 0;
 
 	for (sack_index=0; sack_index < tcph->sa_length(); sack_index++) {
@@ -173,9 +173,9 @@ void ScoreBoard::ClearScoreBoard()
  * GetNextRetran() returns "-1" if there is no packet that is
  *   not acked and not sacked and not retransmitted.
  */
-int ScoreBoard::GetNextRetran()	// Returns sequence number of next pkt...
+seq_t ScoreBoard::GetNextRetran()	// Returns sequence number of next pkt...
 {
-	int i;
+	seq_t i;
 
 	if (length_) {
 		for (i=SBN[(first_)%sbsize_].seq_no_; 
@@ -194,9 +194,9 @@ int ScoreBoard::GetNextRetran()	// Returns sequence number of next pkt...
  * starting with seqno.
  * Returns -1 if there is no unacked packet in that range.
  */
-int ScoreBoard::GetNextUnacked (int seqno)
+seq_t ScoreBoard::GetNextUnacked (int seqno)
 {
-	int i;
+	seq_t i;
 	if (!length_) {
 		return (-1);
 	} else if (seqno < SBN[(first_)%sbsize_].seq_no_ ||
@@ -213,13 +213,13 @@ int ScoreBoard::GetNextUnacked (int seqno)
 
 }
 
-void ScoreBoard::MarkRetran (int retran_seqno, int snd_nxt)
+void ScoreBoard::MarkRetran (seq_t retran_seqno, seq_t snd_nxt)
 {
 	SBN[retran_seqno%sbsize_].retran_ = 1;
 	SBN[retran_seqno%sbsize_].snd_nxt_ = snd_nxt;
 }
 
-void ScoreBoard::MarkRetran (int retran_seqno)
+void ScoreBoard::MarkRetran (seq_t retran_seqno)
 {
 	SBN[retran_seqno%sbsize_].retran_ = 1;
 }
@@ -233,7 +233,7 @@ void ScoreBoard::resizeSB(int sz)
 		exit(1);
 	}
 
-	for(int i = SBN[first_%sbsize_].seq_no_;
+	for(seq_t i = SBN[first_%sbsize_].seq_no_;
 	    i<=SBN[(first_)%sbsize_].seq_no_+length_; i++) {
 		newSBN[i%sz] = SBN[i%sbsize_];
 	}
@@ -245,7 +245,7 @@ void ScoreBoard::resizeSB(int sz)
 
 void ScoreBoard::Dump()
 {
-       int i;
+       seq_t i;
 
        printf("SB len: %d  ", length_);
        if (length_) {

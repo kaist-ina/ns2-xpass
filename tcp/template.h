@@ -47,6 +47,21 @@ inline int min(int a, int b)
 	return a < b ? a : b;
 }
 
+inline int64_t min(int64_t a, int64_t b)
+{
+  return a < b ? a : b;
+}
+
+inline int64_t min(int64_t a, int b)
+{
+  return a < b ? a : b;
+}
+
+inline int64_t min(int a, int64_t b)
+{
+  return a < b ? a : b;
+}
+
 inline double min(int a, double b)
 {
 	return a < b ? a : b;
@@ -62,9 +77,24 @@ inline double min(double a, double b)
 	return a < b ? a : b;
 }
 
+inline double min(int64_t a, double b)
+{
+  return a < b ? a : b;
+}
+
+inline double min(double a, int64_t b)
+{
+  return a < b ? a : b;
+}
+
 inline int max(int a, int b)
 {
 	return a < b ? b : a;
+}
+
+inline int64_t max(int64_t a, int64_t b)
+{
+  return a > b ? a : b;
 }
 
 inline double max(int a, double b)
@@ -77,9 +107,29 @@ inline double max(double a, int b)
 	return a < b ? b : a;
 }
 
+inline int64_t max(int64_t a, int b)
+{
+  return a > b ? a : b;
+}
+
+inline int64_t max(int a, int64_t b)
+{
+  return a > b ? a : b;
+}
+
 inline double max(double a, double b)
 {
 	return a < b ? b : a;
+}
+
+inline double max(int64_t a, double b)
+{
+  return a > b ? a : b;
+}
+
+inline double max(double a, int64_t b)
+{
+  return a > b ? a : b;
 }
 
 

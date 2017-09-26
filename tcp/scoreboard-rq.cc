@@ -44,8 +44,8 @@ int ScoreBoardRQ::IsEmpty(){
 	return 0;
 }
 
-int ScoreBoardRQ::GetNextRetran(){
-	int seq;
+seq_t ScoreBoardRQ::GetNextRetran(){
+	seq_t seq;
 	int fcnt;
 	int fbytes;
 
@@ -69,7 +69,7 @@ int ScoreBoardRQ::GetNextRetran(){
 	return (-1);
 }
 
-int ScoreBoardRQ::UpdateScoreBoard(int last_ack_, hdr_tcp* tcph){
+int ScoreBoardRQ::UpdateScoreBoard(TcpSeq last_ack_, hdr_tcp* tcph){
 	int old_total = rq_.total();
 	changed_ = 0;
 	
@@ -101,15 +101,15 @@ int ScoreBoardRQ::UpdateScoreBoard(int last_ack_, hdr_tcp* tcph){
  * starting with seqno.
  * Returns -1 if there is no unacked packet in that range.
  */
-int ScoreBoardRQ::GetNextUnacked (int seqno)
+TcpSeq ScoreBoardRQ::GetNextUnacked (TcpSeq seqno)
 {
       int nxtcnt;	// not used
       int nxtbytes;	// not used
-      int unacked = rq_.nexthole(seqno, nxtcnt, nxtbytes);
+      TcpSeq unacked = rq_.nexthole(seqno, nxtcnt, nxtbytes);
       return (unacked);
 }
 
-int ScoreBoardRQ::CheckSndNxt(hdr_tcp* ) {
+seq_t ScoreBoardRQ::CheckSndNxt(hdr_tcp* ) {
 	printf("ScoreBoardRQ::CheckSndNxt not implemented\n");
 	exit(1);
 	return 0;
@@ -119,7 +119,7 @@ void ScoreBoardRQ::Dump() {
   rq_.dumplist();
 }
 
-void ScoreBoardRQ::MarkRetran (int retran_seqno, int)
+void ScoreBoardRQ::MarkRetran (TcpSeq retran_seqno, TcpSeq)
 {
 	if (retran_seqno >= h_seqno_) 
 		h_seqno_ = retran_seqno+1;

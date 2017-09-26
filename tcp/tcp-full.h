@@ -127,7 +127,7 @@ public:
 	virtual void timeout(int tno); 	// tcp_timers() in real code
 	virtual void close() { usrclosed(); }
 	void advanceby(int);	// over-rides tcp base version
-	void advance_bytes(int);	// unique to full-tcp
+	void advance_bytes(seq_t);	// unique to full-tcp
         virtual void sendmsg(int nbytes, const char *flags = 0);
         virtual int& size() { return maxseg_; } //FullTcp uses maxseg_ for size_
 	virtual int command(int argc, const char*const* argv);
@@ -153,8 +153,8 @@ protected:
 	int reno_fastrecov_;	// do reno-style fast recovery?
 	int infinite_send_;	// Always something to send
 	int tcprexmtthresh_;    // fast retransmit threshold
-	int iss_;       // initial send seq number
-	int irs_;	// initial recv'd # (peer's iss)
+	seq_t iss_;       // initial send seq number
+	seq_t irs_;	// initial recv'd # (peer's iss)
 	int dupseg_fix_;    // fix bug with dup segs and dup acks?
 	int dupack_reset_;  // zero dupacks on dataful dup acks?
 	int halfclose_;	    // allow simplex closes?
@@ -171,10 +171,10 @@ protected:
 
 	int headersize();   // a tcp header w/opts
 	int outflags();     // state-specific tcp header flags
-	int rcvseqinit(int, int); // how to set rcv_nxt_
+	int rcvseqinit(seq_t, int); // how to set rcv_nxt_
 	int predict_ok(Packet*); // predicate for recv-side header prediction
 	int idle_restart();	// should I restart after idle?
-	int fast_retransmit(int);  // do a fast-retransmit on specified seg
+	int fast_retransmit(seq_t);  // do a fast-retransmit on specified seg
 	inline double now() { return Scheduler::instance().clock(); }
 	virtual void newstate(int ns);
 
@@ -191,11 +191,11 @@ protected:
 	virtual int build_options(hdr_tcp*);	// insert opts, return len
 	virtual int reass(Packet*);		// reassemble: pass to ReassemblyQueue
 	virtual void process_sack(hdr_tcp*);	// process a SACK
-	virtual int send_allowed(int);		// ok to send this seq#?
-	virtual int nxt_tseq() {
+	virtual int send_allowed(seq_t);		// ok to send this seq#?
+	virtual seq_t nxt_tseq() {
 		return t_seqno_;		// next seq# to send
 	}
-	virtual void sent(int seq, int amt) {
+	virtual void sent(seq_t seq, int amt) {
 		if (seq == t_seqno_)
 			t_seqno_ += amt;
 		pipe_ += amt;
@@ -211,12 +211,12 @@ protected:
 			cwnd_++;
 	}
 
-	virtual void sendpacket(int seq, int ack, int flags, int dlen, int why, Packet *p=0);
+	virtual void sendpacket(seq_t seq, seq_t ack, int flags, int dlen, int why, Packet *p=0);
 	void connect();     		// do active open
 	void listen();      		// do passive open
 	void usrclosed();   		// user requested a close
 	int need_send();    		// send ACK/win-update now?
-	int foutput(int seqno, int reason = 0); // output 1 packet
+	int foutput(seq_t seqno, int reason = 0); // output 1 packet
 	void newack(Packet* pkt);	// process an ACK
 	int pack(Packet* pkt);		// is this a partial ack?
 	void dooptions(Packet*);	// process option(s)
@@ -234,7 +234,7 @@ protected:
 	int state_;     /* enumerated type: FSM state */
 	int recent_ce_;	/* last ce bit we saw */
 	int last_state_; /* FSM state at last pkt recv */
-	int rcv_nxt_;       /* next sequence number expected */
+	seq_t rcv_nxt_;       /* next sequence number expected */
 	ReassemblyQueue rq_;    /* TCP reassembly queue */
 	/*
 	* the following are part of a tcpcb in "real" RFC1323 TCP
@@ -281,10 +281,10 @@ protected:
 	virtual void dupack_action();
 	virtual void process_sack(hdr_tcp*);
 	virtual void timeout_action();
-	virtual int nxt_tseq();
+	virtual seq_t nxt_tseq();
 	virtual int hdrsize(int nblks);
-	virtual int send_allowed(int);
-	virtual void sent(int seq, int amt) {
+	virtual int send_allowed(seq_t);
+	virtual void sent(seq_t seq, int amt) {
 		if (seq == h_seqno_)
 			h_seqno_ += amt;
 		FullTcpAgent::sent(seq, amt);
@@ -305,8 +305,8 @@ protected:
 	//void	sendpacket(int seqno, int ackno, int pflags, int datalen, int reason, Packet *p=0);
 
 	ReassemblyQueue sq_;	// SACK queue, used by sender
-	int sack_min_;		// first seq# in sack queue, initializes sq_
-	int h_seqno_;		// next seq# to hole-fill
+	seq_t sack_min_;		// first seq# in sack queue, initializes sq_
+	seq_t h_seqno_;		// next seq# to hole-fill
 };
 
 #endif

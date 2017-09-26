@@ -207,7 +207,7 @@ ReassemblyQueue::clearto(TcpSeq seq)
  */
 
 int
-ReassemblyQueue::gensack(int *sacks, int maxsblock)
+ReassemblyQueue::gensack(TcpSeq *sacks, int maxsblock)
 {
 	seginfo *p = top_;
 	int cnt = maxsblock;

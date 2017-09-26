@@ -644,7 +644,7 @@ int TcpAgent::headersize()
         return (total);
 }
 
-void TcpAgent::output(int seqno, int reason)
+void TcpAgent::output(seq_t seqno, int reason)
 {
 	int force_set_rtx_timer = 0;
 	Packet* p = allocpkt();
@@ -724,7 +724,7 @@ void TcpAgent::output(int seqno, int reason)
 			hdr_qs *qsh = hdr_qs::access(p);
 
 			// dataout is kilobytes queued for sending
-			int dataout = (curseq_ - maxseq_ - 1) * (size_ + headersize()) / 1024;
+			seq_t dataout = (curseq_ - maxseq_ - 1) * (size_ + headersize()) / 1024;
 			int qs_rr = rate_request_;
 			if (qs_request_mode_ == 1 && qs_rtt_ > 0) {
 				// PS: Avoid making unnecessary QS requests
@@ -1418,7 +1418,7 @@ void TcpAgent::newack(Packet* pkt)
  * Note that this procedure is called before "highest_ack_" is
  * updated to reflect the current ACK packet.  
  */
-void TcpAgent::ecn(int seqno)
+void TcpAgent::ecn(seq_t seqno)
 {
 	if (seqno > recover_ || 
 	      last_cwnd_action_ == CWND_ACTION_TIMEOUT) {
@@ -1777,7 +1777,7 @@ int TcpAgent::lossQuickStart()
 void TcpAgent::recv(Packet *pkt, Handler*)
 {
 	hdr_tcp *tcph = hdr_tcp::access(pkt);
-	int valid_ack = 0;
+	seq_t valid_ack = 0;
 	if (qs_approved_ == 1 && tcph->seqno() > last_ack_) 
 		endQuickStart();
 	if (qs_requested_ == 1)
@@ -1940,7 +1940,7 @@ void TcpAgent::tcp_eln(Packet *pkt)
 {
         //int eln_rxmit;
         hdr_tcp *tcph = hdr_tcp::access(pkt);
-        int ack = tcph->seqno();
+        seq_t ack = tcph->seqno();
 
         if (++dupacks_ == eln_rxmit_thresh_ && ack > eln_last_rxmit_) {
                 /* Retransmit this packet */
@@ -2160,7 +2160,7 @@ TcpAgent::rtt_counting()
 	}
 }
 
-void TcpAgent::process_qoption_after_ack (int seqno)
+void TcpAgent::process_qoption_after_ack (seq_t seqno)
 {
 	if (F_counting == 1) {
 		if (seqno >= W_timed) {
@@ -2177,12 +2177,12 @@ void TcpAgent::process_qoption_after_ack (int seqno)
 void TcpAgent::trace_event(char *eventtype)
 {
 	if (et_ == NULL) return;
-	int seqno = t_seqno_;
+	seq_t seqno = t_seqno_;
 	char *wrk = et_->buffer();
 	char *nwrk = et_->nbuffer();
 	if (wrk != 0)
 		sprintf(wrk,
-			"E "TIME_FORMAT" %d %d TCP %s %d %d %d",
+			"E "TIME_FORMAT" %d %d TCP %s %d %ld %d",
 			et_->round(Scheduler::instance().clock()),   // time
 			addr(),                       // owner (src) node id
 			daddr(),                      // dst node id

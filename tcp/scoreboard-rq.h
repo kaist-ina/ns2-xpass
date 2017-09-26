@@ -47,20 +47,20 @@ public:
 	virtual ~ScoreBoardRQ(){delete[] SBN;}
 	virtual int IsEmpty ();
 	virtual void ClearScoreBoard () {rq_.clear(); h_seqno_ = -1;}; 
-	virtual int GetNextRetran ();
-	virtual void MarkRetran (int retran_seqno){
+	virtual TcpSeq GetNextRetran ();
+	virtual void MarkRetran (TcpSeq retran_seqno){
 		if (retran_seqno >= h_seqno_) 
 			h_seqno_ = retran_seqno+1;
 	};
-	virtual void MarkRetran (int retran_seqno, int snd_nxt);
-	virtual int UpdateScoreBoard (int last_ack_, hdr_tcp*);
+	virtual void MarkRetran (TcpSeq retran_seqno,TcpSeq snd_nxt);
+	virtual int UpdateScoreBoard (TcpSeq last_ack_, hdr_tcp*);
 	virtual int CheckUpdate() {return (changed_);}
-	virtual int CheckSndNxt (hdr_tcp*);
-	virtual int GetNextUnacked (int seqno);
+	virtual TcpSeq CheckSndNxt (hdr_tcp*);
+	virtual TcpSeq GetNextUnacked (TcpSeq seqno);
 	virtual void Dump();
 protected:	
-	int h_seqno_;
-	int sack_min;	// highest cumulative ack seen so far, plus one
+	TcpSeq h_seqno_;
+	TcpSeq sack_min;	// highest cumulative ack seen so far, plus one
 	
 	ReassemblyQueue rq_;	
 };

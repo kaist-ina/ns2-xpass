@@ -980,22 +980,22 @@ void packet_string (char* str, hdr_tcp *tcph, hdr_ip* iph, int size)
 	 * In FullTcp, everything is an ACK except 1st SYN
 	 */ 
 	if ((tcph->flags() & TH_SYN) && (tcph->flags() & TH_ACK)) {
-		sprintf (str, "%s SYN #%u (%d) ACK #%u", str, tcph->seqno(), 
+		sprintf (str, "%s SYN #%ld (%d) ACK #%ld", str, tcph->seqno(), 
 			 datalen, tcph->ackno());
 	}
 	else if (tcph->flags() & TH_SYN) {
-		sprintf (str, "%s SYN #%u (%d)", str, tcph->seqno(), datalen);
+		sprintf (str, "%s SYN #%ld (%d)", str, tcph->seqno(), datalen);
 	}
 	else if (tcph->flags() & TH_FIN) {
-		sprintf (str, "%s FIN #%u (%d) ACK #%u", str, tcph->seqno(), 
+		sprintf (str, "%s FIN #%ld (%d) ACK #%ld", str, tcph->seqno(), 
 			 datalen, tcph->ackno());
 	}
 	else if (datalen == 0) {
 		// "pure ACK"
-		sprintf (str, "%s ACK #%u (%d)", str, tcph->ackno(), datalen);
+		sprintf (str, "%s ACK #%ld (%d)", str, tcph->ackno(), datalen);
 	}
 	else {
-		sprintf (str, "%s DATA #%u (%d) ACK #%u", str, tcph->seqno(), 
+		sprintf (str, "%s DATA #%ld (%d) ACK #%ld", str, tcph->seqno(), 
 			 datalen, tcph->ackno());
 	}
 }

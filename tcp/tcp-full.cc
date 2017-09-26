@@ -347,7 +347,7 @@ FullTcpAgent::advanceby(int np)
  */
 
 void
-FullTcpAgent::advance_bytes(int nb)
+FullTcpAgent::advance_bytes(seq_t nb)
 {
 
 	//
@@ -536,7 +536,7 @@ FullTcpAgent::prpkt(Packet *pkt)
 	hdr_ip* iph = hdr_ip::access(pkt);
 	int datalen = th->size() - tcph->hlen(); // # payload bytes
 
-	fprintf(stdout, " [%d:%d.%d>%d.%d] (hlen:%d, dlen:%d, seq:%d, ack:%d, flags:0x%x (%s), salen:%d, reason:0x%x)\n",
+	fprintf(stdout, " [%d:%d.%d>%d.%d] (hlen:%d, dlen:%d, seq:%ld, ack:%ld, flags:0x%x (%s), salen:%d, reason:0x%x)\n",
 		th->uid(),
 		iph->saddr(), iph->sport(),
 		iph->daddr(), iph->dport(),
@@ -716,8 +716,8 @@ FullTcpAgent::reass(Packet* pkt)
         hdr_tcp *tcph =  hdr_tcp::access(pkt);
         hdr_cmn *th = hdr_cmn::access(pkt);
    
-        int start = tcph->seqno();
-        int end = start + th->size() - tcph->hlen();
+        seq_t start = tcph->seqno();
+        seq_t end = start + th->size() - tcph->hlen();
         int tiflags = tcph->flags();
 	int fillshole = (start == rcv_nxt_);
 	int flags;
@@ -761,7 +761,7 @@ FullTcpAgent::reass(Packet* pkt)
  */
 
 int
-FullTcpAgent::rcvseqinit(int seq, int dlen)
+FullTcpAgent::rcvseqinit(seq_t seq, int dlen)
 {
 	return (seq + dlen + 1);
 }
@@ -834,7 +834,7 @@ FullTcpAgent::ack_action(Packet* p)
  * Also, set the size of the tcp header.
  */
 void
-FullTcpAgent::sendpacket(int seqno, int ackno, int pflags, int datalen, int reason, Packet *p)
+FullTcpAgent::sendpacket(seq_t seqno, seq_t ackno, int pflags, int datalen, int reason, Packet *p)
 {
         if (!p) p = allocpkt();
         hdr_tcp *tcph = hdr_tcp::access(p);
@@ -954,7 +954,7 @@ FullTcpAgent::reset_rtx_timer(int /* mild */)
  * seqno, the next seq# we're going to send (snd_nxt)
  */
 int
-FullTcpAgent::foutput(int seqno, int reason)
+FullTcpAgent::foutput(seq_t seqno, int reason)
 {
 	// if maxseg_ not set, set it appropriately
 	// Q: how can this happen?
@@ -969,7 +969,7 @@ FullTcpAgent::foutput(int seqno, int reason)
 	int pflags = outflags();
 	int syn = (seqno == iss_);
 	int emptying_buffer = FALSE;
-	int buffered_bytes = (infinite_send_) ? TCP_MAXSEQ :
+	seq_t buffered_bytes = (infinite_send_) ? TCP_MAXSEQ :
 				curseq_ - highest_ack_ + 1;
 
 	int win = window() * maxseg_;	// window (in bytes)
@@ -1177,7 +1177,7 @@ send:
 	// highest: greatest sequence number sent + 1
 	//	and adjusted for SYNs and FINs which use up one number
 
-	int highest = seqno + reliable;
+	seq_t highest = seqno + reliable;
 	if (highest > maxseq_) {
 		maxseq_ = highest;
 		//
@@ -1238,7 +1238,7 @@ FullTcpAgent::send_much(int force, int reason, int maxburst)
 		 * simulated time instant
 		 */
 		int amt;
-		int seq = nxt_tseq();
+		seq_t seq = nxt_tseq();
 		if (!force && !send_allowed(seq))
 			break;
 		// Q: does this need to be here too?
@@ -1266,10 +1266,10 @@ FullTcpAgent::send_much(int force, int reason, int maxburst)
  * is in the window
  */
 int
-FullTcpAgent::send_allowed(int seq)
+FullTcpAgent::send_allowed(seq_t seq)
 {
-        int win = window() * maxseg_;
-        int topwin = curseq_; // 1 seq number past the last byte we can send
+        seq_t win = window() * maxseg_;
+        seq_t topwin = curseq_; // 1 seq number past the last byte we can send
 
         if ((topwin > highest_ack_ + win) || infinite_send_)
                 topwin = highest_ack_ + win; 
@@ -1294,7 +1294,7 @@ FullTcpAgent::newack(Packet* pkt)
 {
 	hdr_tcp *tcph = hdr_tcp::access(pkt);
 
-	register int ackno = tcph->ackno();
+	register seq_t ackno = tcph->ackno();
 	int progress = (ackno > highest_ack_);
 
 	if (ackno == maxseq_) {
@@ -1411,7 +1411,7 @@ FullTcpAgent::predict_ok(Packet* pkt)
  */
 
 int
-FullTcpAgent::fast_retransmit(int seq)
+FullTcpAgent::fast_retransmit(seq_t seq)
 {
 	// we are now going to fast-retransmit and willtrace that event
 	trace_event("FAST_RETX");
@@ -1518,7 +1518,7 @@ FullTcpAgent::recv(Packet *pkt, Handler*)
 	last_state_ = state_;
 
 	int datalen = th->size() - tcph->hlen(); // # payload bytes
-	int ackno = tcph->ackno();		 // ack # from packet
+	seq_t ackno = tcph->ackno();		 // ack # from packet
 	int tiflags = tcph->flags() ; 		 // tcp flags from packet
 
 //if (state_ != TCPS_ESTABLISHED || (tiflags&(TH_SYN|TH_FIN))) {
@@ -2049,7 +2049,7 @@ trimthenstep6:
 		if (ackno < highest_ack_ || ackno > maxseq_) {
 			// not in useful range
                         if (debug_) {
-		    	        fprintf(stderr, "%f: FullTcpAgent(%s): ack(%d) not in range while in SYN_RECEIVED: ",
+		    	        fprintf(stderr, "%f: FullTcpAgent(%s): ack(%ld) not in range while in SYN_RECEIVED: ",
 			 	now(), name(), ackno);
 			        prpkt(pkt);
                         }
@@ -3011,7 +3011,7 @@ SackFullTcpAgent::process_sack(hdr_tcp* tcph)
 		if (((tcph->flags() & TH_FIN) == 0) && 
 		    tcph->sa_left(i) >= tcph->sa_right(i)) {
 			fprintf(stderr,
-			    "%f: FullTcpAgent(%s) warning: received illegal SACK block [%d,%d]\n",
+			    "%f: FullTcpAgent(%s) warning: received illegal SACK block [%ld,%ld]\n",
 				now(), name(), tcph->sa_left(i), tcph->sa_right(i));
 			continue;
 		}
@@ -3022,7 +3022,7 @@ SackFullTcpAgent::process_sack(hdr_tcp* tcph)
 }
 
 int
-SackFullTcpAgent::send_allowed(int seq)
+SackFullTcpAgent::send_allowed(seq_t seq)
 {
 	// not in pipe control, so use regular control
 	if (!pipectrl_)
@@ -3055,8 +3055,7 @@ SackFullTcpAgent::send_allowed(int seq)
 // we may want something other than new data (t_seqno)
 //
 
-int
-SackFullTcpAgent::nxt_tseq()
+seq_t SackFullTcpAgent::nxt_tseq()
 {
 
 	int in_recovery = (highest_ack_ < recover_);

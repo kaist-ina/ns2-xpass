@@ -49,10 +49,11 @@
 
 #ifndef ns_rq_h
 #define ns_rq_h
+#include "../tcp/tcp.h"
 
 #define	RQF_MARK	1	// for debugging
 
-typedef int	TcpSeq;		// a TCP sequence number
+typedef seq_t	TcpSeq;		// a TCP sequence number
 typedef	int	TcpFlag;	// holds flags from TCP hdr
 typedef int	RqFlag;		// meta data (owned by ReassemblyQueue)
 
@@ -112,7 +113,7 @@ public:
 	int nexthole(TcpSeq seq, int&, int&);	// find next hole above seq, also
 						// include cnt of following blk
 
-	int gensack(int *sacks, int maxsblock);
+	int gensack(TcpSeq *sacks, int maxsblock);
 
 	void clear();		// clear FIFO, LIFO
 	void init(TcpSeq rcvnxt) { rcv_nxt_ = rcvnxt; clear(); }
