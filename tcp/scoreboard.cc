@@ -194,7 +194,7 @@ seq_t ScoreBoard::GetNextRetran()	// Returns sequence number of next pkt...
  * starting with seqno.
  * Returns -1 if there is no unacked packet in that range.
  */
-seq_t ScoreBoard::GetNextUnacked (int seqno)
+seq_t ScoreBoard::GetNextUnacked (seq_t seqno)
 {
 	seq_t i;
 	if (!length_) {
