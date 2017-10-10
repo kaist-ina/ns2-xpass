@@ -51,7 +51,7 @@ void XPassDropTail::enque(Packet* p) {
   }
   // parsing headers.
   hdr_cmn* cmnh = hdr_cmn::access(p);
-  
+
   // enqueue packet: store and forward.
   if (cmnh->ptype() == PT_XPASS_CREDIT) {
     // p is credit packet.
@@ -82,8 +82,8 @@ Packet* XPassDropTail::deque() {
   packet = credit_q_->head();
   if (packet && tokens_ >= hdr_cmn::access(packet)->size()) {
     // Credit packet should be forwarded.
-    tokens_ -= hdr_cmn::access(packet)->size();
     packet = credit_q_->deque();
+    tokens_ -= hdr_cmn::access(packet)->size();
     return packet;
   }
   
@@ -99,6 +99,9 @@ Packet* XPassDropTail::deque() {
   if (packet) {
     double delay = (hdr_cmn::access(packet)->size() - tokens_) / token_refresh_rate_;
     credit_timer_.resched(delay);
+  }else if (credit_q_->byteLength() > 0 && data_q_->byteLength() > 0) {
+    fprintf(stderr,"Switch has non-zero queue, but timer was not set.\n");
+    exit(1);
   }
 
   return NULL;  
