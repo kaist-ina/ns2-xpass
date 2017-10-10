@@ -264,6 +264,12 @@ Queue/SRR set mtu_ 1000
 Queue/SRR set granularity_ 1000
 Queue/SRR set blimit_ 25000
 
+# XPass DropTail Queue
+Queue/XPassDropTail set data_limit_ 1538*100
+Queue/XPassDropTail set max_tokens_ [expr 84*10]
+Queue/XPassDropTail set token_refresh_rate_ 64734895
+Queue/XPassDropTail set credit_limit_ 1538*100
+
 Queue/CBQ set algorithm_ 0 ;# used by compat only, not bound
 Queue/CBQ set maxpkt_ 1024
 CBQClass set priority_ 0
@@ -1593,3 +1599,16 @@ Agent/PBC set modulationScheme 0
 
 Agent/MDART set macFailed_ true
 Agent/MDART set etxMetric_ true
+
+Agent/XPass set min_credit_size_ 84
+Agent/XPass set max_credit_size_ 84
+Agent/XPass set min_ethernet_size_ 84
+Agent/XPass set max_ethernet_size_ 1538
+Agent/XPass set max_credit_rate_ 64734895 ;# for 10Gbps
+Agent/XPass set cur_credit_rate_ 64734895 ;# for 10Gbps
+Agent/XPass set target_loss_scaling_ 0.125
+Agent/XPass set w_ 0.5
+Agent/XPass set min_w_ 0.01
+Agent/XPass set retransmit_timeout_ 0.1 ;# 100ms
+Agent/XPass set min_jitter_ -0.1
+Agent/XPass set max_jitter_ 0.1
