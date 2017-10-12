@@ -33,15 +33,17 @@ void XPassDropTail::expire() {
 void XPassDropTail::updateTokenBucket() {
   double now = Scheduler::instance().clock();
   double elapsed_time = now - token_bucket_clock_;
+  int new_tokens;
 
   if (elapsed_time <= 0.0) {
     return;
   }
 
-  tokens_ += elapsed_time * token_refresh_rate_;
-  tokens_ = std::min<double>(tokens_, (double)max_tokens_); 
+  new_tokens = (int)(elapsed_time * token_refresh_rate_);
+  tokens_ += new_tokens;
+  tokens_ = std::min<int>(tokens_, max_tokens_); 
 
-  token_bucket_clock_ = now;
+  token_bucket_clock_ += new_tokens / token_refresh_rate_;
 }
 
 // Enqueue when a new packet has arrived.

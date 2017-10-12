@@ -55,7 +55,7 @@ protected:
   // Token Bucket Related Varaibles
   //
   // Number of tokens remaning (in bytes)
-  double tokens_;
+  int tokens_;
   // Maximum number of tokens (in bytes)
   int max_tokens_;
   // Token Bucket clock
