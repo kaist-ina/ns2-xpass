@@ -1,5 +1,9 @@
 set ns [new Simulator]
-set nt [open trace.tr w]
+
+file mkdir "outputs"
+file attributes "outputs"
+
+set nt [open outputs/trace.tr w]
 set agent0 [new Agent/XPass]
 set agent1 [new Agent/XPass]
 
