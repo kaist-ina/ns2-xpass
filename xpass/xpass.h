@@ -75,7 +75,10 @@ public:
                 credit_total_(0), credit_dropped_(0), can_increase_w_(false),
                 send_credit_timer_(this), credit_stop_timer_(this),
                 retransmit_timer_(this), curseq_(1), t_seqno_(1), recv_next_(1),
-                c_seqno_(1), c_recv_next_(1), rtt_(-0.0) { }
+                c_seqno_(1), c_recv_next_(1), rtt_(-0.0) {
+    fct_out_ = fopen("outputs/fct.out","w");              
+    fprintf(fct_out_, "Flow ID\t\tFlow Size (Bytes)\t\tFlow Completion Time (sec)\n");
+  }
   virtual int command(int argc, const char*const* argv);
   virtual void recv(Packet*, Handler*);
 protected:
@@ -148,6 +151,8 @@ protected:
   double rtt_;
   // flow start time
   double fst_;
+  // flow completion time output
+  FILE *fct_out_;
 
   // retransmission time out
   double retransmit_timeout_;

@@ -209,7 +209,8 @@ void XPassAgent::recv_data(Packet *pkt) {
 
 void XPassAgent::recv_credit_stop(Packet *pkt) {
   send_credit_timer_.force_cancel();
-  printf("[%d] %ld %lf\n", fid_, recv_next_-1, now()-fst_);
+  fprintf(fct_out_,"%d\t\t\t\t\t%ld\t\t\t\t\t\t\t\t%.10lf\n", fid_, recv_next_-1, now()-fst_);
+  // printf("[%d] %ld %lf\n", fid_, recv_next_-1, now()-fst_);
   credit_send_state_ = XPASS_SEND_CLOSED;
 }
 
