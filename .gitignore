@@ -16,3 +16,5 @@ indep-utils/webtrace-conv/dec/dec-tr-stat
 indep-utils/webtrace-conv/epa/epa-tr-stat
 indep-utils/webtrace-conv/nlanr/nlanr-tr-stat
 indep-utils/webtrace-conv/ucb/ucb-tr-stat
+outputs
+outputs/*
