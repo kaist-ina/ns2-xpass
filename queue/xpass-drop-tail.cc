@@ -66,9 +66,9 @@ void XPassDropTail::enque(Packet* p) {
     // p is data packet.
     data_q_->enque(p);
     if (data_q_->byteLength() > data_q_limit_) {
+      printf("Data packet will be dropped.\n");
       data_q_->remove(p);
       drop(p);
-      printf("Data packet has been dropped.\n");
     }
   }
 }
