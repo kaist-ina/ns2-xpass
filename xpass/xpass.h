@@ -75,10 +75,7 @@ public:
                 credit_total_(0), credit_dropped_(0), can_increase_w_(false),
                 send_credit_timer_(this), credit_stop_timer_(this),
                 retransmit_timer_(this), curseq_(1), t_seqno_(1), recv_next_(1),
-                c_seqno_(1), c_recv_next_(1), rtt_(-0.0) {
-    fct_out_ = fopen("outputs/fct.out","w");              
-    fprintf(fct_out_, "Flow ID\t\tFlow Size (Bytes)\t\tFlow Completion Time (sec)\n");
-  }
+                c_seqno_(1), c_recv_next_(1), rtt_(-0.0) { }
   virtual int command(int argc, const char*const* argv);
   virtual void recv(Packet*, Handler*);
 protected:
@@ -111,6 +108,8 @@ protected:
   // should always less than or equal to max_credit_rate_.
   // in Bytes/sec
   int cur_credit_rate_;
+  // initial cur_credit_rate_ = alpha_ * max_credit_rate_
+  double alpha_;
   // last time for cur_credit_rate_ update with feedback control.
   double last_credit_rate_update_;
   // target loss scaling factor.
@@ -123,6 +122,8 @@ protected:
   // aggressiveness factor
   // it determines how aggressively increase the credit sending rate.
   double w_;
+  // initial value of w_
+  double w_init_;
   // minimum value of w_
   double min_w_;
   // whether feedback control can increase w or not.
@@ -151,8 +152,6 @@ protected:
   double rtt_;
   // flow start time
   double fst_;
-  // flow completion time output
-  FILE *fct_out_;
 
   // retransmission time out
   double retransmit_timeout_;
@@ -161,7 +160,7 @@ protected:
   seq_t datalen_remaining() { return (curseq_ - t_seqno_); }
   double avg_credit_size() { return (min_credit_size_ + max_credit_size_)/2.0; }
 
-  void reset();
+  void init();
   Packet* construct_credit_request();
   Packet* construct_credit_stop();
   Packet* construct_credit();

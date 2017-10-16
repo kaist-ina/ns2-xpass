@@ -4,7 +4,6 @@ set bandwidth 10Gb
 set linkLatency 10us
 
 file mkdir "outputs"
-file attributes "outputs"
 
 set nt [open outputs/trace.tr w]
 set agent0 [new Agent/XPass]

@@ -32,13 +32,13 @@ void RetransmitTimer::expire(Event *) {
 
 void XPassAgent::delay_bind_init_all() {
   delay_bind_init_one("max_credit_rate_");
-  delay_bind_init_one("cur_credit_rate_");
+  delay_bind_init_one("alpha_");
   delay_bind_init_one("min_credit_size_");
   delay_bind_init_one("max_credit_size_");
   delay_bind_init_one("min_ethernet_size_");
   delay_bind_init_one("max_ethernet_size_");
   delay_bind_init_one("target_loss_scaling_");
-  delay_bind_init_one("w_");
+  delay_bind_init_one("w_init_");
   delay_bind_init_one("min_w_");
   delay_bind_init_one("retransmit_timeout_");
   delay_bind_init_one("min_jitter_");
@@ -52,8 +52,7 @@ int XPassAgent::delay_bind_dispatch(const char *varName, const char *localName,
                 tracer)) {
     return TCL_OK;
   }
-  if (delay_bind(varName, localName, "cur_credit_rate_", &cur_credit_rate_,
-                 tracer)) {
+  if (delay_bind(varName, localName, "alpha_", &alpha_, tracer)) {
     return TCL_OK;
   }
   if (delay_bind(varName, localName, "min_credit_size_", &min_credit_size_,
@@ -76,7 +75,7 @@ int XPassAgent::delay_bind_dispatch(const char *varName, const char *localName,
                  tracer)) {
     return TCL_OK;
   }
-  if (delay_bind(varName, localName, "w_", &w_, tracer)) {
+  if (delay_bind(varName, localName, "w_init_", &w_init_, tracer)) {
     return TCL_OK;
   }
   if (delay_bind(varName, localName, "min_w_", &min_w_, tracer)) {
@@ -95,8 +94,10 @@ int XPassAgent::delay_bind_dispatch(const char *varName, const char *localName,
   return Agent::delay_bind_dispatch(varName, localName, tracer);
 }
 
-void XPassAgent::reset() {
-  
+void XPassAgent::init() {
+  w_ = w_init_;
+  cur_credit_rate_ = (int)(alpha_ * max_credit_rate_);
+  last_credit_rate_update_ = now();
 }
 
 int XPassAgent::command(int argc, const char*const* argv) {
@@ -148,6 +149,7 @@ void XPassAgent::recv_credit_request(Packet *pkt) {
 
   switch (credit_send_state_) {
     case XPASS_SEND_CLOSED:
+      init();
       fst_ = xph->credit_sent_time();
       // need to start to send credits.
       send_credit();
@@ -209,8 +211,9 @@ void XPassAgent::recv_data(Packet *pkt) {
 
 void XPassAgent::recv_credit_stop(Packet *pkt) {
   send_credit_timer_.force_cancel();
-  fprintf(fct_out_,"%d\t\t\t\t\t%ld\t\t\t\t\t\t\t\t%.10lf\n", fid_, recv_next_-1, now()-fst_);
-  // printf("[%d] %ld %lf\n", fid_, recv_next_-1, now()-fst_);
+  FILE *fct_out = fopen("outputs/fct.out","a");
+  fprintf(fct_out,"%d,%ld,%.10lf\n", fid_, recv_next_-1, now()-fst_);
+  fclose(fct_out);
   credit_send_state_ = XPASS_SEND_CLOSED;
 }
 
@@ -424,34 +427,37 @@ void XPassAgent::credit_feedback_control() {
   if (credit_total_ == 0) {
     return;
   }
+
+  int old_rate = cur_credit_rate_;
   double loss_rate = credit_dropped_/(double)credit_total_;
-  double target_loss = (1.0 - cur_credit_rate_/max_credit_rate_) * target_loss_scaling_;
+  double target_loss = (1.0 - cur_credit_rate_/(double)max_credit_rate_) * target_loss_scaling_;
+  int min_rate = (int)(avg_credit_size() / rtt_);
 
   if (loss_rate > target_loss) {
     // congestion has been detected!
-    if (last_credit_rate_update_ > 0.0) {
-      cur_credit_rate_ = avg_credit_size()*(credit_total_ - credit_dropped_)
-                         / (now() - last_credit_rate_update_)
-                         * (1+target_loss);
-    } else {
-      cur_credit_rate_ = avg_credit_size()*(credit_total_ - credit_dropped_)
-                         / rtt_
-                         * (1+target_loss);
+    cur_credit_rate_ = avg_credit_size()*(credit_total_ - credit_dropped_)
+                       / (now() - last_credit_rate_update_)
+                       * (1+target_loss);
+    if (old_rate < cur_credit_rate_) {
+      cur_credit_rate_ = old_rate;
     }
     w_ = max(w_/2.0, min_w_);
     can_increase_w_ = false;
   }else {
     // there is no congestion.
     if (can_increase_w_) {
-      w_ = (w_ + 0.5) / 2.0;
+      w_ = min(w_ + 0.05, 0.5);
     }else {
       can_increase_w_ = true;
     }
-    cur_credit_rate_ = w_*max_credit_rate_ + (1-w_)*cur_credit_rate_;
+    cur_credit_rate_ = (int)(w_*max_credit_rate_ + (1-w_)*cur_credit_rate_);
   }
 
   if (cur_credit_rate_ > max_credit_rate_) {
     cur_credit_rate_ = max_credit_rate_;
+  }
+  if (cur_credit_rate_ < min_rate) {
+    cur_credit_rate_ = min_rate;
   }
 
   credit_total_ = 0;
