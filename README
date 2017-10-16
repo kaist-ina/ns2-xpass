@@ -2,12 +2,23 @@ This is ExpressPass implementation on ns-2.35
 Ns should configure and build on Unix systems with GNU autoconfigure.
 
 Quick Start:
-  1. Download the ns-allinone-2.35
-  2. Replace ns-2.35 with this repository.
-  3. Build the NS with './install' in ns-allinone-2.35 directory
-  4. You can run simple test script
-      './ns scripts/simple-send-recv.tcl'
-  5. Outputs will be available at outputs directory.
+  1. Download the ns-allinone-2.35.tar.gz and extract it.
+    wget -O ns-allinone-2.35.tar.gz http://sourceforge.net/projects/nsnam/files/allinone/ns-allinone-2.35/ns-allinone-2.35.tar.gz/download
+    tar -xvzf ns-allinone-2.35.tar.gz
+  2. Remove the original ns-2.35 directory
+    cd ns-allinone-2.35
+    rm -rf ns-2.35
+  3. Clone this git repository and change the directory name to 'ns-2.35'
+    git clone https://github.com/kaist-ina/ns2-xpass.git
+    mv ns2-xpass ns-2.35
+  4. Configure & compile the codes
+    ./install
+  5. Now you can run sample scripts in ns-2.35 directory
+    cd ns-2.35
+    ./ns scripts/simple-send-recv.tcl
+  6. Output file (trace file and flow completion time) is available in outputs directory.
+    vim outputs/fct.out
+    vim outputs/trace.out
 
 More experiment scripts will be updtated soon.
 If you have any question, please contact Inho Cho (inhojoe@gmail.com)
