@@ -81,7 +81,7 @@ for {set i 0} {$i < $N} {incr i} {
 
 puts "Simulation started."
 for {set i 0} {$i < $N} {incr i} {
-  $ns at 0.0 "$sender($i) advance-bytes 1000000000"
+  $ns at 0.0 "$sender($i) advance-bytes 100000000"
 }
 
 $ns at 10.0 "finish"
