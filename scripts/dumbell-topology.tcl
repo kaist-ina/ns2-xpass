@@ -25,7 +25,7 @@ proc finish {} {
   global ns nt
   $ns flush-trace
   close $nt
-  puts "Simluation terminated successfully."
+  puts "Simulation terminated successfully."
   exit 0
 }
 
