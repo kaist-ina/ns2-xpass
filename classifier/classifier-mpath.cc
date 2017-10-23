@@ -66,7 +66,7 @@ public:
     if (symmetric_) {
       // If there exists at least one slot and
       // not yet sorted
-      if (maxslot_ > -1 && sorted_maxslot_ > maxslot_) {
+      if (sorted_maxslot_ == -1 || maxslot_ > sorted_maxslot_) {
         qsort (slot_, maxslot_+1, sizeof(NsObject*), slotcmp);
         sorted_maxslot_ = maxslot_;
       }
