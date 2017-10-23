@@ -107,5 +107,5 @@ Packet* XPassDropTail::deque() {
     exit(1);
   }
 
-  return NULL;  
+  return NULL;
 }

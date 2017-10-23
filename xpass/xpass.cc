@@ -418,7 +418,7 @@ void XPassAgent::update_rtt(Packet *pkt) {
 }
 
 void XPassAgent::credit_feedback_control() {
-  if (rtt_ < 0.0) {
+  if (rtt_ <= 0.0) {
     return;
   }
   if ((now() - last_credit_rate_update_) < rtt_) {
