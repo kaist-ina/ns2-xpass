@@ -101,6 +101,9 @@ protected:
   // maximum credit size
   int max_credit_size_;
 
+  // ExpressPass Header size
+  int xpass_hdr_size_;
+
   // maximum credit rate (= lineRate * 84/(1538+84))
   // in Bytes/sec
   int max_credit_rate_;
