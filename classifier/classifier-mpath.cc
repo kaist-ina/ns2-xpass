@@ -87,12 +87,13 @@ public:
       buf_.src_dst_xor = (src ^ dst) & 0x0000ffff;
       buf_.lower_addr = (src < dst) ? src : dst;
       buf_.higher_addr = (src > dst) ? src : dst;
+      buf_.fid = iph->flowid();
 
       bufString = (char*) &buf_;
       bufLength = sizeof(hkey);
-      
-      ms_ = ((unsigned int)HashString(bufString, bufLength))
-             % (maxslot_ + 1);
+
+      ms_ = (unsigned int)HashString(bufString, bufLength);
+      ms_ %= (maxslot_ + 1);
       int fail = ms_;
       do {
         cl = ms_++;
@@ -113,7 +114,6 @@ private:
   // "True" for symmetric routing,
   // "False" for asymmetric routing (default)
   int symmetric_;
-  
   int sorted_maxslot_;
 
   static unsigned int
