@@ -41,7 +41,7 @@ void XPassDropTail::updateTokenBucket() {
 
   new_tokens = (int)(elapsed_time * token_refresh_rate_);
   tokens_ += new_tokens;
-  tokens_ = std::min<int>(tokens_, max_tokens_); 
+  tokens_ = min(tokens_, max_tokens_);
 
   token_bucket_clock_ += new_tokens / token_refresh_rate_;
 }
