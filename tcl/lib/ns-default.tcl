@@ -1604,11 +1604,12 @@ Agent/XPass set min_credit_size_ 84
 Agent/XPass set max_credit_size_ 84
 Agent/XPass set min_ethernet_size_ 84
 Agent/XPass set max_ethernet_size_ 1538
+Agent/XPass set xpass_hdr_size_ 78
 Agent/XPass set max_credit_rate_ 64734895 ;# for 10Gbps
 Agent/XPass set alpha_ 0.5
 Agent/XPass set target_loss_scaling_ 0.125
 Agent/XPass set w_init_ 0.5
 Agent/XPass set min_w_ 0.01
 Agent/XPass set retransmit_timeout_ 0.1 ;# 100ms
-Agent/XPass set min_jitter_ -0.2
-Agent/XPass set max_jitter_ 0.2
+Agent/XPass set min_jitter_ -0.1
+Agent/XPass set max_jitter_ 0.1
