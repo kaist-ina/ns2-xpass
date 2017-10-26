@@ -12,7 +12,7 @@ set dataQueueCapacity [expr 1538*100] ;# bytes
 set hostQueueCapacity [expr 1538*100] ;# bytes
 set maxCrditBurst [expr 84*2] ;# bytes
 set creditRate 64734895 ;# bytes / sec
-set interflowDelay 0 ;# secs
+set interFlowDelay 0 ;# secs
 
 # Output file
 file mkdir "outputs"
@@ -80,8 +80,10 @@ for {set i 0} {$i < $N} {incr i} {
 }
 
 puts "Simulation started."
+set nextTime 0.0
 for {set i 0} {$i < $N} {incr i} {
-  $ns at 0.0 "$sender($i) advance-bytes 100000000"
+  $ns at $nextTime "$sender($i) advance-bytes 100000000"
+  set nextTime [expr $nextTime + $interFlowDelay]
 }
 
 $ns at 10.0 "finish"
