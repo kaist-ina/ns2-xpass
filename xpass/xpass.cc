@@ -1,7 +1,6 @@
 #include "xpass.h"
 #include "../tcp/template.h"
 
-
 int hdr_xpass::offset_;
 static class XPassHeaderClass: public PacketHeaderClass {
 public:
@@ -37,6 +36,7 @@ void XPassAgent::delay_bind_init_all() {
   delay_bind_init_one("max_credit_size_");
   delay_bind_init_one("min_ethernet_size_");
   delay_bind_init_one("max_ethernet_size_");
+  delay_bind_init_one("xpass_hdr_size_");
   delay_bind_init_one("target_loss_scaling_");
   delay_bind_init_one("w_init_");
   delay_bind_init_one("min_w_");
@@ -68,6 +68,10 @@ int XPassAgent::delay_bind_dispatch(const char *varName, const char *localName,
     return TCL_OK;
   }
   if (delay_bind(varName, localName, "max_ethernet_size_", &max_ethernet_size_,
+                 tracer)) {
+    return TCL_OK;
+  }
+  if (delay_bind(varName, localName, "xpass_hdr_size_", &xpass_hdr_size_,
                  tracer)) {
     return TCL_OK;
   }
@@ -199,10 +203,8 @@ void XPassAgent::recv_data(Packet *pkt) {
   }
 
   credit_total_ += (distance + 1);
-  if (distance > 0) {
-    // credit should be dropped at network.
-    credit_dropped_ += distance;
-  }
+  credit_dropped_ += distance;
+
   c_recv_next_ = xph->credit_seq() + 1;
 
   process_ack(pkt);
@@ -210,8 +212,9 @@ void XPassAgent::recv_data(Packet *pkt) {
 }
 
 void XPassAgent::recv_credit_stop(Packet *pkt) {
-  send_credit_timer_.force_cancel();
   FILE *fct_out = fopen("outputs/fct.out","a");
+
+  send_credit_timer_.force_cancel();
   fprintf(fct_out,"%d,%ld,%.10lf\n", fid_, recv_next_-1, now()-fst_);
   fclose(fct_out);
   credit_send_state_ = XPASS_SEND_CLOSED;
@@ -238,7 +241,7 @@ Packet* XPassAgent::construct_credit_request() {
 
   tcph->seqno() = t_seqno_;
   tcph->ackno() = recv_next_;
-  tcph->hlen() = min_ethernet_size_;
+  tcph->hlen() = xpass_hdr_size_;
 
   cmnh->size() = min_ethernet_size_;
   cmnh->ptype() = PT_XPASS_CREDIT_REQUEST;
@@ -261,8 +264,8 @@ Packet* XPassAgent::construct_credit_stop() {
 
   tcph->seqno() = t_seqno_;
   tcph->ackno() = recv_next_;
-  tcph->hlen() = min_ethernet_size_;
-
+  tcph->hlen() = xpass_hdr_size_;
+  
   cmnh->size() = min_ethernet_size_;
   cmnh->ptype() = PT_XPASS_CREDIT_STOP;
 
@@ -318,7 +321,7 @@ Packet* XPassAgent::construct_data(Packet *credit) {
   hdr_cmn *cmnh = hdr_cmn::access(p);
   hdr_xpass *xph = hdr_xpass::access(p);
   hdr_xpass *credit_xph = hdr_xpass::access(credit);
-  int datalen = (int)min(max_ethernet_size_ - min_ethernet_size_,
+  int datalen = (int)min(max_ethernet_size_ - xpass_hdr_size_,
                          datalen_remaining());
 
   if (datalen <= 0) {
@@ -328,9 +331,9 @@ Packet* XPassAgent::construct_data(Packet *credit) {
 
   tcph->seqno() = t_seqno_;
   tcph->ackno() = recv_next_;
-  tcph->hlen() = min_ethernet_size_;
+  tcph->hlen() = xpass_hdr_size_;
 
-  cmnh->size() = min_ethernet_size_ + datalen;
+  cmnh->size() = max(min_ethernet_size_, xpass_hdr_size_ + datalen);
   cmnh->ptype() = PT_XPASS_DATA;
 
   xph->credit_sent_time() = credit_xph->credit_sent_time();
@@ -435,12 +438,17 @@ void XPassAgent::credit_feedback_control() {
 
   if (loss_rate > target_loss) {
     // congestion has been detected!
-    cur_credit_rate_ = avg_credit_size()*(credit_total_ - credit_dropped_)
-                       / (now() - last_credit_rate_update_)
-                       * (1+target_loss);
-    if (old_rate < cur_credit_rate_) {
+    if (loss_rate >= 1.0) {
+      cur_credit_rate_ = (int)(avg_credit_size() / rtt_);
+    } else {
+      cur_credit_rate_ = (int)(avg_credit_size()*(credit_total_ - credit_dropped_)
+                         / (now() - last_credit_rate_update_)
+                         * (1.0+target_loss));
+    }
+    if (cur_credit_rate_ > old_rate) {
       cur_credit_rate_ = old_rate;
     }
+
     w_ = max(w_/2.0, min_w_);
     can_increase_w_ = false;
   }else {
@@ -450,7 +458,9 @@ void XPassAgent::credit_feedback_control() {
     }else {
       can_increase_w_ = true;
     }
-    cur_credit_rate_ = (int)(w_*max_credit_rate_ + (1-w_)*cur_credit_rate_);
+    if (cur_credit_rate_ < max_credit_rate_) {
+      cur_credit_rate_ = (int)(w_*max_credit_rate_ + (1-w_)*cur_credit_rate_);
+    }
   }
 
   if (cur_credit_rate_ > max_credit_rate_) {
