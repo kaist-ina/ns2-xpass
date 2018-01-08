@@ -16,6 +16,8 @@ typedef enum XPASS_SEND_STATE_ {
 
 typedef enum XPASS_RECV_STATE_ {
   XPASS_RECV_CLOSED,
+  XPASS_RECV_CLOSE_CREDIT_IGNORE,
+  XPASS_RECV_CLOSE_WAIT,
   XPASS_RECV_CREDIT_REQUEST_SENT,
   XPASS_RECV_CREDIT_RECEIVING,
   XPASS_RECV_CREDIT_STOP_SENT,
@@ -65,17 +67,28 @@ protected:
   XPassAgent *a_;
 };
 
+class RetransmitTimerCreditStop: public TimerHandler {
+public:
+  RetransmitTimerCreditStop(XPassAgent *a): TimerHandler(), a_(a) { }
+protected:
+  virtual void expire(Event *);
+  XPassAgent *a_;
+};
+
 class XPassAgent: public Agent {
   friend class SendCreditTimer;
   friend class CreditStopTimer;
   friend class RetransmitTimer;
+  friend class RetransmitTimerCreditStop;
 public:
   XPassAgent(): Agent(PT_XPASS_DATA), credit_send_state_(XPASS_SEND_CLOSED),
                 credit_recv_state_(XPASS_RECV_CLOSED), last_credit_rate_update_(-0.0),
                 credit_total_(0), credit_dropped_(0), can_increase_w_(false),
                 send_credit_timer_(this), credit_stop_timer_(this),
-                retransmit_timer_(this), curseq_(1), t_seqno_(1), recv_next_(1),
-                c_seqno_(1), c_recv_next_(1), rtt_(-0.0) { }
+                retransmit_timer_(this), retransmit_timer_credit_stop_(this), 
+				        curseq_(1), t_seqno_(1), recv_next_(1),
+                c_seqno_(1), c_recv_next_(1), rtt_(-0.0),
+								credit_recv_count_(0) { }
   virtual int command(int argc, const char*const* argv);
   virtual void recv(Packet*, Handler*);
 protected:
@@ -139,6 +152,7 @@ protected:
   SendCreditTimer send_credit_timer_;
   CreditStopTimer credit_stop_timer_;
   RetransmitTimer retransmit_timer_;
+  RetransmitTimerCreditStop retransmit_timer_credit_stop_;
 
   // the highest sequence number produced by app.
   seq_t curseq_;
@@ -159,6 +173,12 @@ protected:
   // retransmission time out
   double retransmit_timeout_;
 
+  // timeout to ignore credits after credit stop
+  double credit_ignore_timeout_;
+
+  // counter to hold credit count;
+  int credit_recv_count_;
+
   inline double now() { return Scheduler::instance().clock(); }
   seq_t datalen_remaining() { return (curseq_ - t_seqno_); }
   double avg_credit_size() { return (min_credit_size_ + max_credit_size_)/2.0; }
@@ -178,6 +198,7 @@ protected:
   void recv_credit_stop(Packet *pkt);
 
   void handle_retransmit();
+  void handle_retransmit_credit_stop();
   void process_ack(Packet *pkt);
   void update_rtt(Packet *pkt);
 
