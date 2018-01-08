@@ -36,7 +36,6 @@ proc finish {} {
 }
 
 #$ns trace-all $nt
-
 puts "Creating Nodes..."
 
 set router_left [$ns node]
@@ -65,7 +64,6 @@ for {set i 1} {$i <= $N} {incr i} {
 
 puts "Creating Agents..."
 Agent/XPass set max_credit_rate_ $creditRate
-#Agent/XPass set cur_credit_rate_ [expr $ALPHA*$creditRate]
 Agent/XPass set alpha_ $ALPHA
 Agent/XPass set w_ $w_init
 
