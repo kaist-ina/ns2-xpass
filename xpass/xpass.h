@@ -66,9 +66,9 @@ protected:
   XPassAgent *a_;
 };
 
-class RetransmitTimerCreditStop: public TimerHandler {
+class RetransmitCreditStopTimer: public TimerHandler {
 public:
-  RetransmitTimerCreditStop(XPassAgent *a): TimerHandler(), a_(a) { }
+  RetransmitCreditStopTimer(XPassAgent *a): TimerHandler(), a_(a) { }
 protected:
   virtual void expire(Event *);
   XPassAgent *a_;
@@ -78,13 +78,13 @@ class XPassAgent: public Agent {
   friend class SendCreditTimer;
   friend class CreditStopTimer;
   friend class RetransmitTimer;
-  friend class RetransmitTimerCreditStop;
+  friend class RetransmitCreditStopTimer;
 public:
   XPassAgent(): Agent(PT_XPASS_DATA), credit_send_state_(XPASS_SEND_CLOSED),
                 credit_recv_state_(XPASS_RECV_CLOSED), last_credit_rate_update_(-0.0),
                 credit_total_(0), credit_dropped_(0), can_increase_w_(false),
                 send_credit_timer_(this), credit_stop_timer_(this),
-                retransmit_timer_(this), retransmit_timer_credit_stop_(this), 
+                retransmit_timer_(this), retransmit_credit_stop_timer_(this), 
 				        curseq_(1), t_seqno_(1), recv_next_(1),
                 c_seqno_(1), c_recv_next_(1), rtt_(-0.0),
 								credit_recv_count_(0) { }
@@ -151,7 +151,7 @@ protected:
   SendCreditTimer send_credit_timer_;
   CreditStopTimer credit_stop_timer_;
   RetransmitTimer retransmit_timer_;
-  RetransmitTimerCreditStop retransmit_timer_credit_stop_;
+  RetransmitCreditStopTimer retransmit_credit_stop_timer_;
 
   // the highest sequence number produced by app.
   seq_t curseq_;

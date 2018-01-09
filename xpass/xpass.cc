@@ -29,7 +29,7 @@ void RetransmitTimer::expire(Event *) {
   a_->handle_retransmit();
 }
 
-void RetransmitTimerCreditStop::expire(Event *) {
+void RetransmitCreditStopTimer::expire(Event *) {
   a_->handle_retransmit_credit_stop();
 }
 
@@ -266,7 +266,7 @@ void XPassAgent::handle_retransmit_credit_stop() {
 	case XPASS_RECV_CLOSE_WAIT:
 	  if (credit_recv_count_ == 0) {
 	    credit_recv_state_ = XPASS_RECV_CLOSED;
-		retransmit_timer_credit_stop_.force_cancel();
+		retransmit_credit_stop_timer_.force_cancel();
 		return;
 	  }
 	  // retransmit credit_stop
@@ -274,7 +274,7 @@ void XPassAgent::handle_retransmit_credit_stop() {
 	  break;
   }
   credit_recv_count_ = 0;
-  retransmit_timer_credit_stop_.resched(retransmit_timeout_); 
+  retransmit_credit_stop_timer_.resched(retransmit_timeout_); 
 }
 
 Packet* XPassAgent::construct_credit_request() {
@@ -461,7 +461,7 @@ void XPassAgent::send_credit() {
 void XPassAgent::send_credit_stop() {
   send(construct_credit_stop(), 0);
   // set on timer
-  retransmit_timer_credit_stop_.resched(credit_ignore_timeout_);    
+  retransmit_credit_stop_timer_.resched(credit_ignore_timeout_);    
   credit_recv_state_ = XPASS_RECV_CREDIT_STOP_SENT; //Later changes to XPASS_RECV_CLOSE_WAIT -> XPASS_RECV_CLOSED
 }
 
