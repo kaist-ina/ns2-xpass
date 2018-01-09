@@ -244,7 +244,7 @@ void XPassAgent::handle_retransmit() {
 
 void XPassAgent::handle_retransmit_credit_stop() {
   switch (credit_recv_state_){
-    case XPASS_RECV_CLOSE_CREDIT_IGNORE:
+    case XPASS_RECV_CREDIT_STOP_SENT:
 	  credit_recv_state_ = XPASS_RECV_CLOSE_WAIT;
   	  break;
 	case XPASS_RECV_CLOSE_WAIT:
@@ -405,7 +405,7 @@ void XPassAgent::send_credit_stop() {
   send(construct_credit_stop(), 0);
   // set on timer
   retransmit_timer_credit_stop_.resched(credit_ignore_timeout_);    
-  credit_recv_state_ = XPASS_RECV_CLOSE_CREDIT_IGNORE; //Later changes to XPASS_RECV_CLOSE_WAIT -> XPASS_RECV_CLOSED
+  credit_recv_state_ = XPASS_RECV_CREDIT_STOP_SENT; //Later changes to XPASS_RECV_CLOSE_WAIT -> XPASS_RECV_CLOSED
 }
 
 void XPassAgent::advance_bytes(seq_t nb) {
