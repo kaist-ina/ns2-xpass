@@ -1611,5 +1611,6 @@ Agent/XPass set target_loss_scaling_ 0.125
 Agent/XPass set w_init_ 0.5
 Agent/XPass set min_w_ 0.01
 Agent/XPass set retransmit_timeout_ 0.1 ;# 100ms
+Agent/XPass set credit_ignore_timeout_ 0.1 ;# 100ms
 Agent/XPass set min_jitter_ -0.1
 Agent/XPass set max_jitter_ 0.1
