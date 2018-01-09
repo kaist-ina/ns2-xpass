@@ -33,11 +33,6 @@ void RetransmitTimerCreditStop::expire(Event *) {
   a_->handle_retransmit_credit_stop();
 }
 
-///////////
-void SendNackTimer::expire(Event *){
-  a_->handle_send_nack();
-}
-
 void XPassAgent::delay_bind_init_all() {
   delay_bind_init_one("max_credit_rate_");
   delay_bind_init_one("alpha_");
@@ -156,9 +151,8 @@ void XPassAgent::recv(Packet* pkt, Handler*) {
     case PT_XPASS_CREDIT_STOP:
       recv_credit_stop(pkt);
       break;
-    ///////////////////////
     case PT_XPASS_NACK:
-      recv_nack(pkt)
+      recv_nack(pkt);
       break;
     default:
       break;
@@ -233,14 +227,17 @@ void XPassAgent::recv_data(Packet *pkt) {
   update_rtt(pkt);
 }
 
-////////////////copied recv_data, needed to revise/ (sender)
 void XPassAgent::recv_nack(Packet *pkt) {
   hdr_xpass *xph = hdr_xpass::access(pkt);
-  
-  // packet 
+  hdr_tcp *tcph = hdr_tcp::access(pkt);
+  hdr_cmn *cmnh = hdr_cmn::access(pkt);
 
-  
-  update_rtt(pkt);
+	seq_t seq_no = tcph->seqno();
+	seq_t len = tcph->ackno();
+
+	send(construct_data(pkt), 0);
+
+	printf("[%d] %lf: Recv NACK for seq=%ld\n", fid_, now(), seq_no);
 }
 
 void XPassAgent::recv_credit_stop(Packet *pkt) {
@@ -278,14 +275,6 @@ void XPassAgent::handle_retransmit_credit_stop() {
   }
   credit_recv_count_ = 0;
   retransmit_timer_credit_stop_.resched(retransmit_timeout_); 
-}
-
-void XPassAgent::handle_send_nack() {
-  ////////check whether missing data packets are arrived.
-
-
-  /////if there is no missing data packet, close.
-  send_credit_timer_.force_cancel()
 }
 
 Packet* XPassAgent::construct_credit_request() {
@@ -404,8 +393,7 @@ Packet* XPassAgent::construct_data(Packet *credit) {
   return p;
 }
 
-//////////////////// nack packet
-Packet* XPassAgent::construct_nack() {
+Packet* XPassAgent::construct_nack(seq_t seq_no, seq_t len) {
   Packet *p = allocpkt();
   if (!p) {
     fprintf(stderr, "ERROR: allockpkt() failed\n");
@@ -415,15 +403,33 @@ Packet* XPassAgent::construct_nack() {
   hdr_cmn *cmnh = hdr_cmn::access(p);
   hdr_xpass *xph = hdr_xpass::access(p);
 
-  tcph->seqno() = t_seqno_;
-  tcph->ackno() = recv_next_;
-  tcph->hlen() = ; ///////////
+  tcph->seqno() = seq_no;
+  tcph->ackno() = len;
+  tcph->hlen() = xpass_hdr_size_; // TODO : Seems to be ERROR
 
-  cmnh->size() = ; ///////////
+	// Regard NACK packet as credit
+
+	int credit_size = min_credit_size_;
+
+  if (min_credit_size_ < max_credit_size_) {
+    // variable credit size
+    credit_size += rand()%(max_credit_size_ - min_credit_size_ + 1);
+  } else {
+    // static credit size
+    if (min_credit_size_ != max_credit_size_){
+      fprintf(stderr, "ERROR: min_credit_size_ should be less than or equal to max_credit_size_\n");
+      exit(1);
+    }
+  }
+
+  cmnh->size() = min_ethernet_size_;
   cmnh->ptype() = PT_XPASS_NACK;
 
+  xph->credit_sent_time() = now();
+  xph->credit_seq() = c_seqno_;
 
-
+  c_seqno_ = max(1, c_seqno_+1);
+	printf("[%d] %lf: Send NACK for seq=%ld\n", fid_, now(), seq_no);
   return p;
 }
 
@@ -487,14 +493,13 @@ void XPassAgent::process_ack(Packet *pkt) {
     printf("[%d] %lf: data loss detected. (expected = %ld, received = %ld)\n",
            fid_, now(), recv_next_, tcph->seqno());
     
-    send(construct_nack(), 0);
-    send_nack_timer_.resched(retransmit_timeout_);
+    send(construct_nack(recv_next_, tcph->seqno()-recv_next_), 0);
   }
   if (datalen < 0) {
     fprintf(stderr, "ERROR: negative length packet has been detected.\n");
     exit(1);
   }
-  recv_next_ += datalen;
+  recv_next_ = tcph->seqno() + datalen;
 }
 
 void XPassAgent::update_rtt(Packet *pkt) {

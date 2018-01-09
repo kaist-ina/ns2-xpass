@@ -74,28 +74,17 @@ protected:
   XPassAgent *a_;
 };
 
-/////////////////
-class SendNackTimer: public TimerHandler {
-public:
-  SendNackTimer(XPassAgent *a): TimerHandler(), a_(a) { }
-protected:
-  virtual void expire(Event *);
-  XPassAgent *a_;
-}
-
 class XPassAgent: public Agent {
   friend class SendCreditTimer;
   friend class CreditStopTimer;
   friend class RetransmitTimer;
   friend class RetransmitTimerCreditStop;
-  friend class SendNackTimer; /////////////////////
 public:
   XPassAgent(): Agent(PT_XPASS_DATA), credit_send_state_(XPASS_SEND_CLOSED),
                 credit_recv_state_(XPASS_RECV_CLOSED), last_credit_rate_update_(-0.0),
                 credit_total_(0), credit_dropped_(0), can_increase_w_(false),
                 send_credit_timer_(this), credit_stop_timer_(this),
                 retransmit_timer_(this), retransmit_timer_credit_stop_(this), 
-                send_nack_timer_(this),///////////////
 				        curseq_(1), t_seqno_(1), recv_next_(1),
                 c_seqno_(1), c_recv_next_(1), rtt_(-0.0),
 								credit_recv_count_(0) { }
@@ -163,7 +152,6 @@ protected:
   CreditStopTimer credit_stop_timer_;
   RetransmitTimer retransmit_timer_;
   RetransmitTimerCreditStop retransmit_timer_credit_stop_;
-  SendNackTimer send_nack_timer_;///////////////
 
   // the highest sequence number produced by app.
   seq_t curseq_;
@@ -199,7 +187,7 @@ protected:
   Packet* construct_credit_stop();
   Packet* construct_credit();
   Packet* construct_data(Packet *credit);
-  Packet* construct_nack();
+  Packet* construct_nack(seq_t seq_no, seq_t len);
   void send_credit();
   void send_credit_stop();
   void advance_bytes(seq_t nb);
