@@ -43,8 +43,8 @@ struct hdr_xpass {
 };
 
 struct packet_chunk {
-	seq_t offset;
-	seq_t length;
+  seq_t offset;
+  seq_t length;
 };
 
 
@@ -92,9 +92,9 @@ public:
                 credit_total_(0), credit_dropped_(0), can_increase_w_(false),
                 send_credit_timer_(this), credit_stop_timer_(this),
                 retransmit_timer_(this), retransmit_credit_stop_timer_(this), 
-				        curseq_(1), t_seqno_(1), recv_next_(1),
+                curseq_(1), t_seqno_(1), recv_next_(1),
                 c_seqno_(1), c_recv_next_(1), rtt_(-0.0),
-								credit_recv_count_(0) { }
+                credit_recv_count_(0) { }
   virtual int command(int argc, const char*const* argv);
   virtual void recv(Packet*, Handler*);
 protected:
@@ -185,8 +185,8 @@ protected:
   // counter to hold credit count;
   int credit_recv_count_;
 
-	// queue to hold NACK request
-	std::queue<struct packet_chunk *> queue_nack_;
+  // queue to hold NACK request
+  std::queue<struct packet_chunk *> queue_nack_;
 
   inline double now() { return Scheduler::instance().clock(); }
   seq_t datalen_remaining() { return (curseq_ - t_seqno_); }
@@ -197,7 +197,7 @@ protected:
   Packet* construct_credit_stop();
   Packet* construct_credit();
   Packet* construct_data(Packet *credit);
-	Packet* construct_data_retransmission(seq_t seqno, seq_t length, Packet* credit);
+  Packet* construct_data_retransmission(seq_t seqno, seq_t length, Packet* credit);
   Packet* construct_nack(seq_t seq_no, seq_t len);
   void send_credit();
   void send_credit_stop();

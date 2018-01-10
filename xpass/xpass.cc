@@ -186,39 +186,39 @@ void XPassAgent::recv_credit(Packet *pkt) {
     case XPASS_RECV_CREDIT_RECEIVING:
       // send data
       if (!queue_nack_.empty()) {
-				// retransmit packet due to NACK
-				struct packet_chunk * chunk = queue_nack_.front();
-				seq_t max_payload = max_ethernet_size_ - xpass_hdr_size_;
-				if(chunk->length > max_payload) {
-					send(construct_data_retransmission(chunk->offset, max_payload, pkt), 0);
-					chunk->offset += max_payload;
-					chunk->length -= max_payload;
-				} else {
-					send(construct_data_retransmission(chunk->offset, chunk->length, pkt), 0);
-					queue_nack_.pop();
-					delete chunk;
-				}	
-			} else {
-				if (datalen_remaining() > 0) {
-					send(construct_data(pkt), 0);
-				}
-				if (datalen_remaining() == 0) {
-					if (credit_stop_timer_.status() != TIMER_IDLE) {
-						fprintf(stderr, "Error: CreditStopTimer seems to be scheduled more than once.\n");
-						exit(1);
-					}
-					// Because ns2 does not allow sending two consecutive packets, 
-					// credit_stop_timer_ schedules CREDIT_STOP packet with no delay.
-					credit_stop_timer_.sched(0);
-				}
-			}
+        // retransmit packet due to NACK
+        struct packet_chunk * chunk = queue_nack_.front();
+        seq_t max_payload = max_ethernet_size_ - xpass_hdr_size_;
+        if(chunk->length > max_payload) {
+          send(construct_data_retransmission(chunk->offset, max_payload, pkt), 0);
+          chunk->offset += max_payload;
+          chunk->length -= max_payload;
+        } else {
+          send(construct_data_retransmission(chunk->offset, chunk->length, pkt), 0);
+          queue_nack_.pop();
+          delete chunk;
+        } 
+      } else {
+        if (datalen_remaining() > 0) {
+          send(construct_data(pkt), 0);
+        }
+        if (datalen_remaining() == 0) {
+          if (credit_stop_timer_.status() != TIMER_IDLE) {
+            fprintf(stderr, "Error: CreditStopTimer seems to be scheduled more than once.\n");
+            exit(1);
+          }
+          // Because ns2 does not allow sending two consecutive packets, 
+          // credit_stop_timer_ schedules CREDIT_STOP packet with no delay.
+          credit_stop_timer_.sched(0);
+        }
+      }
       break;
     case XPASS_RECV_CLOSED:
       break;
-		case XPASS_RECV_CLOSE_WAIT:
-		  // accumulate credit count to check if credit stop has been delivered
-		  credit_recv_count_++;
-		  break;
+    case XPASS_RECV_CLOSE_WAIT:
+      // accumulate credit count to check if credit stop has been delivered
+      credit_recv_count_++;
+      break;
   }
 }
 
@@ -245,11 +245,11 @@ void XPassAgent::recv_data(Packet *pkt) {
 void XPassAgent::recv_nack(Packet *pkt) {
   hdr_tcp *tcph = hdr_tcp::access(pkt);
 
-	struct packet_chunk * chunk = new struct packet_chunk;
-	chunk->offset = tcph->seqno();
-	chunk->length = tcph->ackno();
-	queue_nack_.push(chunk);
-	printf("[%d] %lf: Recv NACK for seq=%ld, length=%ld\n", fid_, now(), chunk->offset, chunk->length);
+  struct packet_chunk * chunk = new struct packet_chunk;
+  chunk->offset = tcph->seqno();
+  chunk->length = tcph->ackno();
+  queue_nack_.push(chunk);
+  printf("[%d] %lf: Recv NACK for seq=%ld, length=%ld\n", fid_, now(), chunk->offset, chunk->length);
 }
 
 void XPassAgent::recv_credit_stop(Packet *pkt) {
@@ -273,17 +273,17 @@ void XPassAgent::handle_retransmit() {
 void XPassAgent::handle_retransmit_credit_stop() {
   switch (credit_recv_state_){
     case XPASS_RECV_CREDIT_STOP_SENT:
-	  credit_recv_state_ = XPASS_RECV_CLOSE_WAIT;
-  	  break;
-	case XPASS_RECV_CLOSE_WAIT:
-	  if (credit_recv_count_ == 0) {
-	    credit_recv_state_ = XPASS_RECV_CLOSED;
-		retransmit_credit_stop_timer_.force_cancel();
-		return;
-	  }
-	  // retransmit credit_stop
-	  send(construct_credit_stop(), 0);
-	  break;
+    credit_recv_state_ = XPASS_RECV_CLOSE_WAIT;
+      break;
+  case XPASS_RECV_CLOSE_WAIT:
+    if (credit_recv_count_ == 0) {
+      credit_recv_state_ = XPASS_RECV_CLOSED;
+    retransmit_credit_stop_timer_.force_cancel();
+    return;
+    }
+    // retransmit credit_stop
+    send(construct_credit_stop(), 0);
+    break;
   }
   credit_recv_count_ = 0;
   retransmit_credit_stop_timer_.resched(retransmit_timeout_); 
@@ -416,11 +416,11 @@ Packet* XPassAgent::construct_data_retransmission(seq_t seq_no, seq_t length, Pa
   hdr_xpass *xph = hdr_xpass::access(p);
   hdr_xpass *credit_xph = hdr_xpass::access(credit);
   seq_t datalen = length;
-	if (datalen <= 0) {
+  if (datalen <= 0) {
     fprintf(stderr, "ERROR: datapacket has length of less than zero : %ld\n", datalen);
     exit(1);
   }
-	if (xpass_hdr_size_ + datalen > max_ethernet_size_) {
+  if (xpass_hdr_size_ + datalen > max_ethernet_size_) {
     fprintf(stderr, "ERROR: datapacket has larger length than max of ethernet frame\n");
     exit(1);
   }
@@ -436,10 +436,8 @@ Packet* XPassAgent::construct_data_retransmission(seq_t seq_no, seq_t length, Pa
   xph->credit_seq() = credit_xph->credit_seq();
   printf("[%d] %lf: retransmission due to NACK for seq=%ld, len=%ld\n", fid_, now(), seq_no, length);
  
-	return p;
+  return p;
 }
-
-
 
 Packet* XPassAgent::construct_nack(seq_t seq_no, seq_t len) {
   Packet *p = allocpkt();
@@ -449,35 +447,15 @@ Packet* XPassAgent::construct_nack(seq_t seq_no, seq_t len) {
   }
   hdr_tcp *tcph = hdr_tcp::access(p);
   hdr_cmn *cmnh = hdr_cmn::access(p);
-  hdr_xpass *xph = hdr_xpass::access(p);
 
   tcph->seqno() = seq_no;
   tcph->ackno() = len;
   tcph->hlen() = xpass_hdr_size_; // TODO : Seems to be ERROR
 
-	// Regard NACK packet as credit
-
-	int credit_size = min_credit_size_;
-
-  if (min_credit_size_ < max_credit_size_) {
-    // variable credit size
-    credit_size += rand()%(max_credit_size_ - min_credit_size_ + 1);
-  } else {
-    // static credit size
-    if (min_credit_size_ != max_credit_size_){
-      fprintf(stderr, "ERROR: min_credit_size_ should be less than or equal to max_credit_size_\n");
-      exit(1);
-    }
-  }
-
   cmnh->size() = min_ethernet_size_;
   cmnh->ptype() = PT_XPASS_NACK;
 
-  xph->credit_sent_time() = now();
-  xph->credit_seq() = c_seqno_;
-
-  c_seqno_ = max(1, c_seqno_+1);
-	printf("[%d] %lf: Send NACK for seq=%ld\n", fid_, now(), seq_no);
+  printf("[%d] %lf: Send NACK for seq=%ld\n", fid_, now(), seq_no);
   return p;
 }
 
