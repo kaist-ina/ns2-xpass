@@ -6,6 +6,7 @@
 #include "tcp.h"
 #include "template.h"
 #include <assert.h>
+#include <queue>
 
 typedef enum XPASS_SEND_STATE_ {
   XPASS_SEND_CLOSED,
@@ -40,6 +41,12 @@ struct hdr_xpass {
   double& credit_sent_time() { return (credit_sent_time_); }
   seq_t& credit_seq() { return (credit_seq_); }
 };
+
+struct packet_chunk {
+	seq_t offset;
+	seq_t length;
+};
+
 
 class XPassAgent;
 class SendCreditTimer: public TimerHandler {
@@ -178,6 +185,9 @@ protected:
   // counter to hold credit count;
   int credit_recv_count_;
 
+	// queue to hold NACK request
+	std::queue<struct packet_chunk *> queue_nack_;
+
   inline double now() { return Scheduler::instance().clock(); }
   seq_t datalen_remaining() { return (curseq_ - t_seqno_); }
   double avg_credit_size() { return (min_credit_size_ + max_credit_size_)/2.0; }
@@ -187,6 +197,7 @@ protected:
   Packet* construct_credit_stop();
   Packet* construct_credit();
   Packet* construct_data(Packet *credit);
+	Packet* construct_data_retransmission(seq_t seqno, seq_t length, Packet* credit);
   Packet* construct_nack(seq_t seq_no, seq_t len);
   void send_credit();
   void send_credit_stop();

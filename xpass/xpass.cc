@@ -185,18 +185,33 @@ void XPassAgent::recv_credit(Packet *pkt) {
       credit_recv_state_ = XPASS_RECV_CREDIT_RECEIVING;
     case XPASS_RECV_CREDIT_RECEIVING:
       // send data
-      if (datalen_remaining() > 0) {
-        send(construct_data(pkt), 0);
-      }
-      if (datalen_remaining() == 0) {
-        if (credit_stop_timer_.status() != TIMER_IDLE) {
-          fprintf(stderr, "Error: CreditStopTimer seems to be scheduled more than once.\n");
-          exit(1);
-        }
-        // Because ns2 does not allow sending two consecutive packets, 
-        // credit_stop_timer_ schedules CREDIT_STOP packet with no delay.
-        credit_stop_timer_.sched(0);
-      }
+      if (!queue_nack_.empty()) {
+				// retransmit packet due to NACK
+				struct packet_chunk * chunk = queue_nack_.front();
+				seq_t max_payload = max_ethernet_size_ - xpass_hdr_size_;
+				if(chunk->length > max_payload) {
+					send(construct_data_retransmission(chunk->offset, max_payload, pkt), 0);
+					chunk->offset += max_payload;
+					chunk->length -= max_payload;
+				} else {
+					send(construct_data_retransmission(chunk->offset, chunk->length, pkt), 0);
+					queue_nack_.pop();
+					delete chunk;
+				}	
+			} else {
+				if (datalen_remaining() > 0) {
+					send(construct_data(pkt), 0);
+				}
+				if (datalen_remaining() == 0) {
+					if (credit_stop_timer_.status() != TIMER_IDLE) {
+						fprintf(stderr, "Error: CreditStopTimer seems to be scheduled more than once.\n");
+						exit(1);
+					}
+					// Because ns2 does not allow sending two consecutive packets, 
+					// credit_stop_timer_ schedules CREDIT_STOP packet with no delay.
+					credit_stop_timer_.sched(0);
+				}
+			}
       break;
     case XPASS_RECV_CLOSED:
       break;
@@ -228,16 +243,13 @@ void XPassAgent::recv_data(Packet *pkt) {
 }
 
 void XPassAgent::recv_nack(Packet *pkt) {
-  hdr_xpass *xph = hdr_xpass::access(pkt);
   hdr_tcp *tcph = hdr_tcp::access(pkt);
-  hdr_cmn *cmnh = hdr_cmn::access(pkt);
 
-	seq_t seq_no = tcph->seqno();
-	seq_t len = tcph->ackno();
-
-	send(construct_data(pkt), 0);
-
-	printf("[%d] %lf: Recv NACK for seq=%ld\n", fid_, now(), seq_no);
+	struct packet_chunk * chunk = new struct packet_chunk;
+	chunk->offset = tcph->seqno();
+	chunk->length = tcph->ackno();
+	queue_nack_.push(chunk);
+	printf("[%d] %lf: Recv NACK for seq=%ld, length=%ld\n", fid_, now(), chunk->offset, chunk->length);
 }
 
 void XPassAgent::recv_credit_stop(Packet *pkt) {
@@ -393,6 +405,42 @@ Packet* XPassAgent::construct_data(Packet *credit) {
   return p;
 }
 
+Packet* XPassAgent::construct_data_retransmission(seq_t seq_no, seq_t length, Packet* credit) {
+  Packet *p = allocpkt();
+  if (!p) {
+    fprintf(stderr, "ERROR: allockpkt() failed\n");
+    exit(1);
+  }
+  hdr_tcp *tcph = hdr_tcp::access(p);
+  hdr_cmn *cmnh = hdr_cmn::access(p);
+  hdr_xpass *xph = hdr_xpass::access(p);
+  hdr_xpass *credit_xph = hdr_xpass::access(credit);
+  seq_t datalen = length;
+	if (datalen <= 0) {
+    fprintf(stderr, "ERROR: datapacket has length of less than zero : %ld\n", datalen);
+    exit(1);
+  }
+	if (xpass_hdr_size_ + datalen > max_ethernet_size_) {
+    fprintf(stderr, "ERROR: datapacket has larger length than max of ethernet frame\n");
+    exit(1);
+  }
+
+  tcph->seqno() = seq_no;
+  tcph->ackno() = recv_next_;
+  tcph->hlen() = xpass_hdr_size_;
+
+  cmnh->size() = max(min_ethernet_size_, xpass_hdr_size_ + datalen);
+  cmnh->ptype() = PT_XPASS_DATA;
+
+  xph->credit_sent_time() = credit_xph->credit_sent_time();
+  xph->credit_seq() = credit_xph->credit_seq();
+  printf("[%d] %lf: retransmission due to NACK for seq=%ld, len=%ld\n", fid_, now(), seq_no, length);
+ 
+	return p;
+}
+
+
+
 Packet* XPassAgent::construct_nack(seq_t seq_no, seq_t len) {
   Packet *p = allocpkt();
   if (!p) {
@@ -489,7 +537,7 @@ void XPassAgent::process_ack(Packet *pkt) {
   hdr_tcp *tcph = hdr_tcp::access(pkt);
   int datalen = cmnh->size() - tcph->hlen();
 
-  if (tcph->seqno() != recv_next_) {
+  if (tcph->seqno() > recv_next_) {
     printf("[%d] %lf: data loss detected. (expected = %ld, received = %ld)\n",
            fid_, now(), recv_next_, tcph->seqno());
     
