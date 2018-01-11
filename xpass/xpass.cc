@@ -249,7 +249,6 @@ void XPassAgent::recv_nack(Packet *pkt) {
   chunk->offset = tcph->seqno();
   chunk->length = tcph->ackno();
   queue_nack_.push(chunk);
-  printf("[%d] %lf: Recv NACK for seq=%ld, length=%ld\n", fid_, now(), chunk->offset, chunk->length);
 }
 
 void XPassAgent::recv_credit_stop(Packet *pkt) {
@@ -434,7 +433,6 @@ Packet* XPassAgent::construct_data_retransmission(seq_t seq_no, seq_t length, Pa
 
   xph->credit_sent_time() = credit_xph->credit_sent_time();
   xph->credit_seq() = credit_xph->credit_seq();
-  printf("[%d] %lf: retransmission due to NACK for seq=%ld, len=%ld\n", fid_, now(), seq_no, length);
  
   return p;
 }
@@ -455,7 +453,6 @@ Packet* XPassAgent::construct_nack(seq_t seq_no, seq_t len) {
   cmnh->size() = min_ethernet_size_;
   cmnh->ptype() = PT_XPASS_NACK;
 
-  printf("[%d] %lf: Send NACK for seq=%ld\n", fid_, now(), seq_no);
   return p;
 }
 
