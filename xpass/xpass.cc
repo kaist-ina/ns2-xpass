@@ -29,10 +29,6 @@ void RetransmitTimer::expire(Event *) {
   a_->handle_retransmit();
 }
 
-void RetransmitCreditStopTimer::expire(Event *) {
-  a_->handle_retransmit_credit_stop();
-}
-
 void XPassAgent::delay_bind_init_all() {
   delay_bind_init_one("max_credit_rate_");
   delay_bind_init_one("alpha_");
@@ -189,12 +185,12 @@ void XPassAgent::recv_credit(Packet *pkt) {
         // retransmit packet due to NACK
         struct packet_chunk * chunk = queue_nack_.front();
         seq_t max_payload = max_ethernet_size_ - xpass_hdr_size_;
-        if(chunk->length > max_payload) {
-          send(construct_data_retransmission(chunk->offset, max_payload, pkt), 0);
-          chunk->offset += max_payload;
-          chunk->length -= max_payload;
+        if(chunk->len > max_payload) {
+          send(construct_data_retransmission(chunk->seq_no, max_payload, pkt), 0);
+          chunk->seq_no += max_payload;
+          chunk->len -= max_payload;
         } else {
-          send(construct_data_retransmission(chunk->offset, chunk->length, pkt), 0);
+          send(construct_data_retransmission(chunk->seq_no, chunk->len, pkt), 0);
           queue_nack_.pop();
           delete chunk;
         } 
@@ -217,7 +213,7 @@ void XPassAgent::recv_credit(Packet *pkt) {
       break;
     case XPASS_RECV_CLOSE_WAIT:
       // accumulate credit count to check if credit stop has been delivered
-      credit_recv_count_++;
+      credit_recved_++;
       break;
   }
 }
@@ -246,8 +242,8 @@ void XPassAgent::recv_nack(Packet *pkt) {
   hdr_tcp *tcph = hdr_tcp::access(pkt);
 
   struct packet_chunk * chunk = new struct packet_chunk;
-  chunk->offset = tcph->seqno();
-  chunk->length = tcph->ackno();
+  chunk->seq_no = tcph->seqno();
+  chunk->len = tcph->ackno();
   queue_nack_.push(chunk);
 }
 
@@ -266,26 +262,23 @@ void XPassAgent::handle_retransmit() {
       send(construct_credit_request(), 0);
       retransmit_timer_.resched(retransmit_timeout_);
       break;
-  }
-}
-
-void XPassAgent::handle_retransmit_credit_stop() {
-  switch (credit_recv_state_){
     case XPASS_RECV_CREDIT_STOP_SENT:
-    credit_recv_state_ = XPASS_RECV_CLOSE_WAIT;
+      credit_recv_state_ = XPASS_RECV_CLOSE_WAIT;
+      credit_recved_ = 0;
+      retransmit_timer_.resched(retransmit_timeout_); 
       break;
-  case XPASS_RECV_CLOSE_WAIT:
-    if (credit_recv_count_ == 0) {
-      credit_recv_state_ = XPASS_RECV_CLOSED;
-    retransmit_credit_stop_timer_.force_cancel();
-    return;
-    }
-    // retransmit credit_stop
-    send(construct_credit_stop(), 0);
-    break;
+    case XPASS_RECV_CLOSE_WAIT:
+      if (credit_recved_ == 0) {
+        credit_recv_state_ = XPASS_RECV_CLOSED;
+        retransmit_timer_.force_cancel();
+        return;
+      }
+      // retransmit credit_stop
+      send(construct_credit_stop(), 0);
+      credit_recved_ = 0;
+      retransmit_timer_.resched(retransmit_timeout_); 
+      break;
   }
-  credit_recv_count_ = 0;
-  retransmit_credit_stop_timer_.resched(retransmit_timeout_); 
 }
 
 Packet* XPassAgent::construct_credit_request() {
@@ -404,7 +397,7 @@ Packet* XPassAgent::construct_data(Packet *credit) {
   return p;
 }
 
-Packet* XPassAgent::construct_data_retransmission(seq_t seq_no, seq_t length, Packet* credit) {
+Packet* XPassAgent::construct_data_retransmission(seq_t seq_no, seq_t len, Packet* credit) {
   Packet *p = allocpkt();
   if (!p) {
     fprintf(stderr, "ERROR: allockpkt() failed\n");
@@ -414,7 +407,7 @@ Packet* XPassAgent::construct_data_retransmission(seq_t seq_no, seq_t length, Pa
   hdr_cmn *cmnh = hdr_cmn::access(p);
   hdr_xpass *xph = hdr_xpass::access(p);
   hdr_xpass *credit_xph = hdr_xpass::access(credit);
-  seq_t datalen = length;
+  seq_t datalen = len;
   if (datalen <= 0) {
     fprintf(stderr, "ERROR: datapacket has length of less than zero : %ld\n", datalen);
     exit(1);
@@ -484,7 +477,7 @@ void XPassAgent::send_credit() {
 void XPassAgent::send_credit_stop() {
   send(construct_credit_stop(), 0);
   // set on timer
-  retransmit_credit_stop_timer_.resched(credit_ignore_timeout_);    
+  retransmit_timer_.resched(credit_ignore_timeout_);    
   credit_recv_state_ = XPASS_RECV_CREDIT_STOP_SENT; //Later changes to XPASS_RECV_CLOSE_WAIT -> XPASS_RECV_CLOSED
 }
 
