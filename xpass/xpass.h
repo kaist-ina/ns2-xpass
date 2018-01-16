@@ -85,7 +85,7 @@ public:
                 retransmit_timer_(this),
                 curseq_(1), t_seqno_(1), recv_next_(1),
                 c_seqno_(1), c_recv_next_(1), rtt_(-0.0),
-                credit_recved_(0) { }
+                credit_recved_(0), nack_len_(0) { }
   virtual int command(int argc, const char*const* argv);
   virtual void recv(Packet*, Handler*);
 protected:
@@ -174,6 +174,9 @@ protected:
 
   // counter to hold credit count;
   int credit_recved_;
+
+  // length of data which has acknowledged
+  seq_t nack_len_;
 
   // queue to hold NACK request
   std::queue<struct packet_chunk *> queue_nack_;

@@ -257,6 +257,11 @@ void XPassAgent::recv_credit_stop(Packet *pkt) {
 }
 
 void XPassAgent::handle_retransmit() {
+  if (nack_len_ > 0) {
+    send(construct_nack(recv_next_, nack_len_), 0);
+    retransmit_timer_.resched(retransmit_timeout_);
+    return;
+  }
   switch (credit_recv_state_) {
     case XPASS_RECV_CREDIT_REQUEST_SENT:
       send(construct_credit_request(), 0);
@@ -381,7 +386,7 @@ Packet* XPassAgent::construct_data(Packet *credit) {
     fprintf(stderr, "ERROR: datapacket has length of less than zero\n");
     exit(1);
   }
-
+  
   tcph->seqno() = t_seqno_;
   tcph->ackno() = recv_next_;
   tcph->hlen() = xpass_hdr_size_;
@@ -417,7 +422,8 @@ Packet* XPassAgent::construct_data_retransmission(seq_t seq_no, seq_t len, Packe
     exit(1);
   }
 
-  tcph->seqno() = seq_no;
+  t_seqno_ = seq_no;
+  tcph->seqno() = t_seqno_;
   tcph->ackno() = recv_next_;
   tcph->hlen() = xpass_hdr_size_;
 
@@ -504,18 +510,28 @@ void XPassAgent::process_ack(Packet *pkt) {
   hdr_cmn *cmnh = hdr_cmn::access(pkt);
   hdr_tcp *tcph = hdr_tcp::access(pkt);
   int datalen = cmnh->size() - tcph->hlen();
-
-  if (tcph->seqno() > recv_next_) {
-    printf("[%d] %lf: data loss detected. (expected = %ld, received = %ld)\n",
-           fid_, now(), recv_next_, tcph->seqno());
-    
-    send(construct_nack(recv_next_, tcph->seqno()-recv_next_), 0);
-  }
   if (datalen < 0) {
     fprintf(stderr, "ERROR: negative length packet has been detected.\n");
     exit(1);
   }
-  recv_next_ = tcph->seqno() + datalen;
+  if (tcph->seqno() > recv_next_) {
+    printf("[%d] %lf: data loss detected. (expected = %ld, received = %ld)\n",
+           fid_, now(), recv_next_, tcph->seqno());
+    if (nack_len_ == 0) {
+      nack_len_ = tcph->seqno()-recv_next_;
+      send(construct_nack(recv_next_, nack_len_), 0);
+      retransmit_timer_.resched(retransmit_timeout_);
+    }
+  } else if (tcph->seqno() == recv_next_) {
+    if (nack_len_ > 0) {
+      nack_len_ -= datalen;
+      if (nack_len_ <= 0) {
+        nack_len_ = 0;
+        retransmit_timer_.force_cancel();
+      }
+    }
+    recv_next_ += datalen;
+  }
 }
 
 void XPassAgent::update_rtt(Packet *pkt) {
