@@ -200,7 +200,6 @@ protected:
   void recv_nack(Packet *pkt);
 
   void handle_retransmit();
-  void handle_retransmit_credit_stop();
   void process_ack(Packet *pkt);
   void update_rtt(Packet *pkt);
 
