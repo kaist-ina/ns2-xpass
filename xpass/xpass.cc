@@ -235,7 +235,6 @@ void XPassAgent::recv_nack(Packet *pkt) {
       send(construct_credit_request(), 0);
     case XPASS_RECV_CREDIT_REQUEST_SENT:
     case XPASS_RECV_CREDIT_RECEIVING:
-    case XPASS_RECV_NSTATE:
       // set t_seqno_ for retransmission
       t_seqno_ = tcph->ackno();
   }
@@ -301,7 +300,6 @@ Packet* XPassAgent::construct_credit_request() {
 
   xph->credit_seq() = 0;
   xph->credit_sent_time_ = now();
-
 
   return p;
 }
@@ -382,7 +380,6 @@ Packet* XPassAgent::construct_data(Packet *credit) {
     fprintf(stderr, "ERROR: datapacket has length of less than zero\n");
     exit(1);
   }
-  
   tcph->seqno() = t_seqno_;
   tcph->ackno() = recv_next_;
   tcph->hlen() = xpass_hdr_size_;
