@@ -225,7 +225,7 @@ void XPassAgent::recv_data(Packet *pkt) {
 void XPassAgent::recv_nack(Packet *pkt) {
   hdr_tcp *tcph = hdr_tcp::access(pkt);
   // set t_seqno_ for retransmission
-  t_seqno_ = tcph->seqno();
+  t_seqno_ = tcph->ackno();
 }
 
 void XPassAgent::recv_credit_stop(Packet *pkt) {
@@ -238,10 +238,9 @@ void XPassAgent::recv_credit_stop(Packet *pkt) {
 }
 
 void XPassAgent::handle_retransmit() {
-  if (nack_sent_) {
+  if (wait_retransmission_) {
     send(construct_nack(recv_next_), 0);
     retransmit_timer_.resched(retransmit_timeout_);
-    return;
   }
   switch (credit_recv_state_) {
     case XPASS_RECV_CREDIT_REQUEST_SENT:
@@ -392,7 +391,7 @@ Packet* XPassAgent::construct_nack(seq_t seq_no) {
   hdr_tcp *tcph = hdr_tcp::access(p);
   hdr_cmn *cmnh = hdr_cmn::access(p);
 
-  tcph->seqno() = seq_no;
+  tcph->ackno() = seq_no;
   tcph->hlen() = xpass_hdr_size_; // TODO : Seems to be ERROR
 
   cmnh->size() = min_ethernet_size_;
@@ -463,13 +462,13 @@ void XPassAgent::process_ack(Packet *pkt) {
   if (tcph->seqno() > recv_next_) {
     printf("[%d] %lf: data loss detected. (expected = %ld, received = %ld)\n",
            fid_, now(), recv_next_, tcph->seqno());
-    if (!nack_sent_) {
+    if (!wait_retransmission_) {
       send(construct_nack(recv_next_), 0);
       retransmit_timer_.resched(retransmit_timeout_);
     }
   } else if (tcph->seqno() == recv_next_) {
-    if (nack_sent_) {
-      nack_sent_ = false;
+    if (wait_retransmission_) {
+      wait_retransmission_ = false;
       retransmit_timer_.force_cancel();
     }
     recv_next_ += datalen;

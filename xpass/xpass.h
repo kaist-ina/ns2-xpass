@@ -41,12 +41,6 @@ struct hdr_xpass {
   seq_t& credit_seq() { return (credit_seq_); }
 };
 
-struct packet_chunk {
-  seq_t seq_no;
-  seq_t len;
-};
-
-
 class XPassAgent;
 class SendCreditTimer: public TimerHandler {
 public:
@@ -84,7 +78,7 @@ public:
                 retransmit_timer_(this),
                 curseq_(1), t_seqno_(1), recv_next_(1),
                 c_seqno_(1), c_recv_next_(1), rtt_(-0.0),
-                credit_recved_(0), nack_sent_(false) { }
+                credit_recved_(0), wait_retransmission_(false) { }
   virtual int command(int argc, const char*const* argv);
   virtual void recv(Packet*, Handler*);
 protected:
@@ -174,8 +168,8 @@ protected:
   // counter to hold credit count;
   int credit_recved_;
 
-  // whether nack has been sent
-  bool nack_sent_;
+  // whether receiver is waiting for data retransmission
+  bool wait_retransmission_;
 
   inline double now() { return Scheduler::instance().clock(); }
   seq_t datalen_remaining() { return (curseq_ - t_seqno_); }
