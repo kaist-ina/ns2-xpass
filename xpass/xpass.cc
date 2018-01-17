@@ -228,8 +228,17 @@ void XPassAgent::recv_data(Packet *pkt) {
 
 void XPassAgent::recv_nack(Packet *pkt) {
   hdr_tcp *tcph = hdr_tcp::access(pkt);
-  // set t_seqno_ for retransmission
-  t_seqno_ = tcph->ackno();
+  switch (credit_recv_state_) {
+    case XPASS_RECV_CREDIT_STOP_SENT:
+    case XPASS_RECV_CLOSE_WAIT:
+    case XPASS_RECV_CLOSED:
+      send(construct_credit_request(), 0);
+    case XPASS_RECV_CREDIT_REQUEST_SENT:
+    case XPASS_RECV_CREDIT_RECEIVING:
+    case XPASS_RECV_NSTATE:
+      // set t_seqno_ for retransmission
+      t_seqno_ = tcph->ackno();
+  }
 }
 
 void XPassAgent::recv_credit_stop(Packet *pkt) {
