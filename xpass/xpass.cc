@@ -25,8 +25,12 @@ void CreditStopTimer::expire(Event *) {
   a_->send_credit_stop();
 }
 
-void RetransmitTimer::expire(Event *) {
-  a_->handle_retransmit();
+void SenderRetransmitTimer::expire(Event *) {
+  a_->handle_sender_retransmit();
+}
+
+void ReceiverRetransmitTimer::expire(Event *) {
+  a_->handle_receiver_retransmit();
 }
 
 void XPassAgent::delay_bind_init_all() {
@@ -177,7 +181,7 @@ void XPassAgent::recv_credit(Packet *pkt) {
 
   switch (credit_recv_state_) {
     case XPASS_RECV_CREDIT_REQUEST_SENT:
-      retransmit_timer_.force_cancel();
+      sender_retransmit_timer_.force_cancel();
       credit_recv_state_ = XPASS_RECV_CREDIT_RECEIVING;
     case XPASS_RECV_CREDIT_RECEIVING:
       // send data
@@ -237,32 +241,35 @@ void XPassAgent::recv_credit_stop(Packet *pkt) {
   credit_send_state_ = XPASS_SEND_CLOSED;
 }
 
-void XPassAgent::handle_retransmit() {
-  if (wait_retransmission_) {
-    send(construct_nack(recv_next_), 0);
-    retransmit_timer_.resched(retransmit_timeout_);
-  }
+void XPassAgent::handle_sender_retransmit() {
   switch (credit_recv_state_) {
     case XPASS_RECV_CREDIT_REQUEST_SENT:
       send(construct_credit_request(), 0);
-      retransmit_timer_.resched(retransmit_timeout_);
+      sender_retransmit_timer_.resched(retransmit_timeout_);
       break;
     case XPASS_RECV_CREDIT_STOP_SENT:
       credit_recv_state_ = XPASS_RECV_CLOSE_WAIT;
       credit_recved_ = 0;
-      retransmit_timer_.resched(retransmit_timeout_); 
+      sender_retransmit_timer_.resched(retransmit_timeout_); 
       break;
     case XPASS_RECV_CLOSE_WAIT:
       if (credit_recved_ == 0) {
         credit_recv_state_ = XPASS_RECV_CLOSED;
-        retransmit_timer_.force_cancel();
+        sender_retransmit_timer_.force_cancel();
         return;
       }
       // retransmit credit_stop
       send(construct_credit_stop(), 0);
       credit_recved_ = 0;
-      retransmit_timer_.resched(retransmit_timeout_); 
+      sender_retransmit_timer_.resched(retransmit_timeout_); 
       break;
+  }
+}
+
+void XPassAgent::handle_receiver_retransmit() {
+  if (wait_retransmission_) {
+    send(construct_nack(recv_next_), 0);
+    receiver_retransmit_timer_.resched(retransmit_timeout_);
   }
 }
 
@@ -428,7 +435,7 @@ void XPassAgent::send_credit() {
 void XPassAgent::send_credit_stop() {
   send(construct_credit_stop(), 0);
   // set on timer
-  retransmit_timer_.resched(rtt_ > 0 ? (2. * rtt_) : default_credit_stop_timeout_);    
+  sender_retransmit_timer_.resched(rtt_ > 0 ? (2. * rtt_) : default_credit_stop_timeout_);    
   credit_recv_state_ = XPASS_RECV_CREDIT_STOP_SENT; //Later changes to XPASS_RECV_CLOSE_WAIT -> XPASS_RECV_CLOSED
 }
 
@@ -445,7 +452,7 @@ void XPassAgent::advance_bytes(seq_t nb) {
 
   // send credit request
   send(construct_credit_request(), 0);
-  retransmit_timer_.sched(retransmit_timeout_);
+  sender_retransmit_timer_.sched(retransmit_timeout_);
 
   // XPASS_RECV_CLOSED -> XPASS_RECV_CREDIT_REQUEST_SENT
   credit_recv_state_ = XPASS_RECV_CREDIT_REQUEST_SENT;
@@ -464,12 +471,12 @@ void XPassAgent::process_ack(Packet *pkt) {
            fid_, now(), recv_next_, tcph->seqno());
     if (!wait_retransmission_) {
       send(construct_nack(recv_next_), 0);
-      retransmit_timer_.resched(retransmit_timeout_);
+      receiver_retransmit_timer_.resched(retransmit_timeout_);
     }
   } else if (tcph->seqno() == recv_next_) {
     if (wait_retransmission_) {
       wait_retransmission_ = false;
-      retransmit_timer_.force_cancel();
+      receiver_retransmit_timer_.force_cancel();
     }
     recv_next_ += datalen;
   }

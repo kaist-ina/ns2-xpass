@@ -58,9 +58,17 @@ protected:
   XPassAgent *a_;
 };
 
-class RetransmitTimer: public TimerHandler {
+class SenderRetransmitTimer: public TimerHandler {
 public:
-  RetransmitTimer(XPassAgent *a): TimerHandler(), a_(a) { }
+  SenderRetransmitTimer(XPassAgent *a): TimerHandler(), a_(a) { }
+protected:
+  virtual void expire(Event *);
+  XPassAgent *a_;
+};
+
+class ReceiverRetransmitTimer: public TimerHandler {
+public:
+  ReceiverRetransmitTimer(XPassAgent *a): TimerHandler(), a_(a) { }
 protected:
   virtual void expire(Event *);
   XPassAgent *a_;
@@ -69,13 +77,14 @@ protected:
 class XPassAgent: public Agent {
   friend class SendCreditTimer;
   friend class CreditStopTimer;
-  friend class RetransmitTimer;
+  friend class SenderRetransmitTimer;
+  friend class ReceiverRetransmitTimer;
 public:
   XPassAgent(): Agent(PT_XPASS_DATA), credit_send_state_(XPASS_SEND_CLOSED),
                 credit_recv_state_(XPASS_RECV_CLOSED), last_credit_rate_update_(-0.0),
                 credit_total_(0), credit_dropped_(0), can_increase_w_(false),
                 send_credit_timer_(this), credit_stop_timer_(this), 
-                retransmit_timer_(this),
+                sender_retransmit_timer_(this), receiver_retransmit_timer_(this),
                 curseq_(1), t_seqno_(1), recv_next_(1),
                 c_seqno_(1), c_recv_next_(1), rtt_(-0.0),
                 credit_recved_(0), wait_retransmission_(false) { }
@@ -141,7 +150,8 @@ protected:
 
   SendCreditTimer send_credit_timer_;
   CreditStopTimer credit_stop_timer_;
-  RetransmitTimer retransmit_timer_;
+  SenderRetransmitTimer sender_retransmit_timer_;
+  ReceiverRetransmitTimer receiver_retransmit_timer_;
 
   // the highest sequence number produced by app.
   seq_t curseq_;
@@ -191,7 +201,8 @@ protected:
   void recv_credit_stop(Packet *pkt);
   void recv_nack(Packet *pkt);
 
-  void handle_retransmit();
+  void handle_sender_retransmit();
+  void handle_receiver_retransmit();
   void process_ack(Packet *pkt);
   void update_rtt(Packet *pkt);
 
