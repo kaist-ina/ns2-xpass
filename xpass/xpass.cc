@@ -476,6 +476,7 @@ void XPassAgent::process_ack(Packet *pkt) {
     printf("[%d] %lf: data loss detected. (expected = %ld, received = %ld)\n",
            fid_, now(), recv_next_, tcph->seqno());
     if (!wait_retransmission_) {
+      wait_retransmission_ = true;
       send(construct_nack(recv_next_), 0);
       receiver_retransmit_timer_.resched(retransmit_timeout_);
     }
