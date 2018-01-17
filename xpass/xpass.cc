@@ -258,7 +258,7 @@ void XPassAgent::handle_sender_retransmit() {
     case XPASS_RECV_CREDIT_STOP_SENT:
       credit_recv_state_ = XPASS_RECV_CLOSE_WAIT;
       credit_recved_ = 0;
-      sender_retransmit_timer_.resched(retransmit_timeout_); 
+      sender_retransmit_timer_.resched((rtt_ > 0) ? rtt_ : default_credit_stop_timeout_); 
       break;
     case XPASS_RECV_CLOSE_WAIT:
       if (credit_recved_ == 0) {
