@@ -41,7 +41,7 @@ void XPassAgent::delay_bind_init_all() {
   delay_bind_init_one("w_init_");
   delay_bind_init_one("min_w_");
   delay_bind_init_one("retransmit_timeout_");
-  delay_bind_init_one("credit_ignore_timeout_");
+  delay_bind_init_one("default_credit_stop_timeout_");
   delay_bind_init_one("min_jitter_");
   delay_bind_init_one("max_jitter_");
   Agent::delay_bind_init_all();
@@ -90,7 +90,7 @@ int XPassAgent::delay_bind_dispatch(const char *varName, const char *localName,
                  tracer)) {
     return TCL_OK;
   }
-  if (delay_bind(varName, localName, "credit_ignore_timeout_", &credit_ignore_timeout_,
+  if (delay_bind(varName, localName, "default_credit_stop_timeout_", &default_credit_stop_timeout_,
                  tracer)) {
     return TCL_OK;
   }
@@ -181,32 +181,17 @@ void XPassAgent::recv_credit(Packet *pkt) {
       credit_recv_state_ = XPASS_RECV_CREDIT_RECEIVING;
     case XPASS_RECV_CREDIT_RECEIVING:
       // send data
-      if (!queue_nack_.empty()) {
-        // retransmit packet due to NACK
-        struct packet_chunk * chunk = queue_nack_.front();
-        seq_t max_payload = max_ethernet_size_ - xpass_hdr_size_;
-        if(chunk->len > max_payload) {
-          send(construct_data_retransmission(chunk->seq_no, max_payload, pkt), 0);
-          chunk->seq_no += max_payload;
-          chunk->len -= max_payload;
-        } else {
-          send(construct_data_retransmission(chunk->seq_no, chunk->len, pkt), 0);
-          queue_nack_.pop();
-          delete chunk;
-        } 
-      } else {
-        if (datalen_remaining() > 0) {
-          send(construct_data(pkt), 0);
+      if (datalen_remaining() > 0) {
+        send(construct_data(pkt), 0);
+      }
+      if (datalen_remaining() == 0) {
+        if (credit_stop_timer_.status() != TIMER_IDLE) {
+          fprintf(stderr, "Error: CreditStopTimer seems to be scheduled more than once.\n");
+          exit(1);
         }
-        if (datalen_remaining() == 0) {
-          if (credit_stop_timer_.status() != TIMER_IDLE) {
-            fprintf(stderr, "Error: CreditStopTimer seems to be scheduled more than once.\n");
-            exit(1);
-          }
-          // Because ns2 does not allow sending two consecutive packets, 
-          // credit_stop_timer_ schedules CREDIT_STOP packet with no delay.
-          credit_stop_timer_.sched(0);
-        }
+        // Because ns2 does not allow sending two consecutive packets, 
+        // credit_stop_timer_ schedules CREDIT_STOP packet with no delay.
+        credit_stop_timer_.sched(0);
       }
       break;
     case XPASS_RECV_CLOSED:
@@ -228,7 +213,6 @@ void XPassAgent::recv_data(Packet *pkt) {
     fprintf(stderr, "ERROR: Credit Sequence number is reverted.\n");
     exit(1);
   }
-
   credit_total_ += (distance + 1);
   credit_dropped_ += distance;
 
@@ -240,11 +224,8 @@ void XPassAgent::recv_data(Packet *pkt) {
 
 void XPassAgent::recv_nack(Packet *pkt) {
   hdr_tcp *tcph = hdr_tcp::access(pkt);
-
-  struct packet_chunk * chunk = new struct packet_chunk;
-  chunk->seq_no = tcph->seqno();
-  chunk->len = tcph->ackno();
-  queue_nack_.push(chunk);
+  // set t_seqno_ for retransmission
+  t_seqno_ = tcph->seqno();
 }
 
 void XPassAgent::recv_credit_stop(Packet *pkt) {
@@ -257,8 +238,8 @@ void XPassAgent::recv_credit_stop(Packet *pkt) {
 }
 
 void XPassAgent::handle_retransmit() {
-  if (nack_len_ > 0) {
-    send(construct_nack(recv_next_, nack_len_), 0);
+  if (nack_sent_) {
+    send(construct_nack(recv_next_), 0);
     retransmit_timer_.resched(retransmit_timeout_);
     return;
   }
@@ -402,41 +383,7 @@ Packet* XPassAgent::construct_data(Packet *credit) {
   return p;
 }
 
-Packet* XPassAgent::construct_data_retransmission(seq_t seq_no, seq_t len, Packet* credit) {
-  Packet *p = allocpkt();
-  if (!p) {
-    fprintf(stderr, "ERROR: allockpkt() failed\n");
-    exit(1);
-  }
-  hdr_tcp *tcph = hdr_tcp::access(p);
-  hdr_cmn *cmnh = hdr_cmn::access(p);
-  hdr_xpass *xph = hdr_xpass::access(p);
-  hdr_xpass *credit_xph = hdr_xpass::access(credit);
-  seq_t datalen = len;
-  if (datalen <= 0) {
-    fprintf(stderr, "ERROR: datapacket has length of less than zero : %ld\n", datalen);
-    exit(1);
-  }
-  if (xpass_hdr_size_ + datalen > max_ethernet_size_) {
-    fprintf(stderr, "ERROR: datapacket has larger length than max of ethernet frame\n");
-    exit(1);
-  }
-
-  t_seqno_ = seq_no;
-  tcph->seqno() = t_seqno_;
-  tcph->ackno() = recv_next_;
-  tcph->hlen() = xpass_hdr_size_;
-
-  cmnh->size() = max(min_ethernet_size_, xpass_hdr_size_ + datalen);
-  cmnh->ptype() = PT_XPASS_DATA;
-
-  xph->credit_sent_time() = credit_xph->credit_sent_time();
-  xph->credit_seq() = credit_xph->credit_seq();
- 
-  return p;
-}
-
-Packet* XPassAgent::construct_nack(seq_t seq_no, seq_t len) {
+Packet* XPassAgent::construct_nack(seq_t seq_no) {
   Packet *p = allocpkt();
   if (!p) {
     fprintf(stderr, "ERROR: allockpkt() failed\n");
@@ -446,7 +393,6 @@ Packet* XPassAgent::construct_nack(seq_t seq_no, seq_t len) {
   hdr_cmn *cmnh = hdr_cmn::access(p);
 
   tcph->seqno() = seq_no;
-  tcph->ackno() = len;
   tcph->hlen() = xpass_hdr_size_; // TODO : Seems to be ERROR
 
   cmnh->size() = min_ethernet_size_;
@@ -483,7 +429,7 @@ void XPassAgent::send_credit() {
 void XPassAgent::send_credit_stop() {
   send(construct_credit_stop(), 0);
   // set on timer
-  retransmit_timer_.resched(credit_ignore_timeout_);    
+  retransmit_timer_.resched(rtt_ > 0 ? (2. * rtt_) : default_credit_stop_timeout_);    
   credit_recv_state_ = XPASS_RECV_CREDIT_STOP_SENT; //Later changes to XPASS_RECV_CLOSE_WAIT -> XPASS_RECV_CLOSED
 }
 
@@ -517,18 +463,14 @@ void XPassAgent::process_ack(Packet *pkt) {
   if (tcph->seqno() > recv_next_) {
     printf("[%d] %lf: data loss detected. (expected = %ld, received = %ld)\n",
            fid_, now(), recv_next_, tcph->seqno());
-    if (nack_len_ == 0) {
-      nack_len_ = tcph->seqno()-recv_next_;
-      send(construct_nack(recv_next_, nack_len_), 0);
+    if (!nack_sent_) {
+      send(construct_nack(recv_next_), 0);
       retransmit_timer_.resched(retransmit_timeout_);
     }
   } else if (tcph->seqno() == recv_next_) {
-    if (nack_len_ > 0) {
-      nack_len_ -= datalen;
-      if (nack_len_ <= 0) {
-        nack_len_ = 0;
-        retransmit_timer_.force_cancel();
-      }
+    if (nack_sent_) {
+      nack_sent_ = false;
+      retransmit_timer_.force_cancel();
     }
     recv_next_ += datalen;
   }

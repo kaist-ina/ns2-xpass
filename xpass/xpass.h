@@ -6,7 +6,6 @@
 #include "tcp.h"
 #include "template.h"
 #include <assert.h>
-#include <queue>
 
 typedef enum XPASS_SEND_STATE_ {
   XPASS_SEND_CLOSED,
@@ -85,7 +84,7 @@ public:
                 retransmit_timer_(this),
                 curseq_(1), t_seqno_(1), recv_next_(1),
                 c_seqno_(1), c_recv_next_(1), rtt_(-0.0),
-                credit_recved_(0), nack_len_(0) { }
+                credit_recved_(0), nack_sent_(false) { }
   virtual int command(int argc, const char*const* argv);
   virtual void recv(Packet*, Handler*);
 protected:
@@ -170,16 +169,13 @@ protected:
   double retransmit_timeout_;
 
   // timeout to ignore credits after credit stop
-  double credit_ignore_timeout_;
+  double default_credit_stop_timeout_;
 
   // counter to hold credit count;
   int credit_recved_;
 
-  // length of data which has acknowledged
-  seq_t nack_len_;
-
-  // queue to hold NACK request
-  std::queue<struct packet_chunk *> queue_nack_;
+  // whether nack has been sent
+  bool nack_sent_;
 
   inline double now() { return Scheduler::instance().clock(); }
   seq_t datalen_remaining() { return (curseq_ - t_seqno_); }
@@ -190,8 +186,7 @@ protected:
   Packet* construct_credit_stop();
   Packet* construct_credit();
   Packet* construct_data(Packet *credit);
-  Packet* construct_data_retransmission(seq_t seq_no, seq_t len, Packet* credit);
-  Packet* construct_nack(seq_t seq_no, seq_t len);
+  Packet* construct_nack(seq_t seq_no);
   void send_credit();
   void send_credit_stop();
   void advance_bytes(seq_t nb);
