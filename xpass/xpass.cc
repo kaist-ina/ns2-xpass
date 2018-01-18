@@ -233,6 +233,7 @@ void XPassAgent::recv_nack(Packet *pkt) {
     case XPASS_RECV_CLOSE_WAIT:
     case XPASS_RECV_CLOSED:
       send(construct_credit_request(), 0);
+      credit_recv_state_ = XPASS_RECV_CREDIT_REQUEST_SENT;
     case XPASS_RECV_CREDIT_REQUEST_SENT:
     case XPASS_RECV_CREDIT_RECEIVING:
       // set t_seqno_ for retransmission
