@@ -204,9 +204,11 @@ static const packet_t PT_XPASS_CREDIT_REQUEST = 73;
 static const packet_t PT_XPASS_CREDIT_STOP = 74;
 static const packet_t PT_XPASS_CREDIT = 75;
 static const packet_t PT_XPASS_DATA = 76;
+static const packet_t PT_XPASS_NACK = 77;
 
         // insert new packet types here
-static packet_t       PT_NTYPE = 77; // This MUST be the LAST one
+// The number of packets
+static packet_t       PT_NTYPE = 78; // This MUST be the LAST one
 
 enum packetClass
 {
@@ -427,6 +429,7 @@ public:
     name_[PT_XPASS_CREDIT_STOP]="XPASS_CREDIT_STOP";
     name_[PT_XPASS_CREDIT]="XPASS_CREDIT";
     name_[PT_XPASS_DATA]="XPASS_DATA";
+    name_[PT_XPASS_NACK]="XPASS_NACK";
 
 		name_[PT_NTYPE]= "undefined";
 	}
