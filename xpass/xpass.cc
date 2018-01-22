@@ -268,9 +268,7 @@ void XPassAgent::handle_sender_retransmit() {
         return;
       }
       // retransmit credit_stop
-      send(construct_credit_stop(), 0);
-      credit_recved_ = 0;
-      sender_retransmit_timer_.resched(retransmit_timeout_); 
+      send_credit_stop();
       break;
   }
 }
@@ -406,7 +404,7 @@ Packet* XPassAgent::construct_nack(seq_t seq_no) {
   hdr_cmn *cmnh = hdr_cmn::access(p);
 
   tcph->ackno() = seq_no;
-  tcph->hlen() = xpass_hdr_size_; // TODO : Seems to be ERROR
+  tcph->hlen() = xpass_hdr_size_; 
 
   cmnh->size() = min_ethernet_size_;
   cmnh->ptype() = PT_XPASS_NACK;
