@@ -37,6 +37,7 @@
 #
 
 Node set nn_ 0
+Node set nodetype_ 0
 Node proc getid {} {
 	set id [Node set nn_]
 	Node set nn_ [expr $id + 1]
@@ -330,7 +331,7 @@ Node instproc intf-changed {} {
 
 # Node support for equal cost multi path routing
 Node instproc add-routes {id ifs} {
-	$self instvar classifier_ multiPath_ routes_ mpathClsfr_
+	$self instvar classifier_ multiPath_ routes_ mpathClsfr_ nodetype_
 	if !$multiPath_ {
 		if {[llength $ifs] > 1} {
 			warn "$class::$proc cannot install multiple routes"
@@ -352,6 +353,7 @@ Node instproc add-routes {id ifs} {
 			# 3. install the mclassifier in the node classifier_
 			#
 			set mpathClsfr_($id) [new Classifier/MultiPath]
+			$mpathClsfr_($id) set nodetype_ $nodetype_
 			if {$routes_($id) > 0} {
 				assert "$routes_($id) == 1"
 				$mpathClsfr_($id) installNext \

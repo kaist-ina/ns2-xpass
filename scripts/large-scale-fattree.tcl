@@ -93,6 +93,7 @@ $ns rtproto DV
 Agent/rtProto/DV set advertInterval 10
 Node set multiPath_ 1
 Classifier/MultiPath set symmetric_ true
+Classifier/MultiPath set nodetype_ 0 
 
 # Workloads setting
 if {[string compare $workload "mining"] == 0} {
@@ -152,15 +153,19 @@ $randomDstNodeId set max_ $numNode
 puts "Creating nodes..."
 for {set i 0} {$i < $numNode} {incr i} {
   set dcNode($i) [$ns node]
+  $dcNode($i) set nodetype_ 1
 }
 for {set i 0} {$i < $numTor} {incr i} {
   set dcTor($i) [$ns node]
+  $dcTor($i) set nodetype_ 2
 }
 for {set i 0} {$i < $numAggr} {incr i} {
   set dcAggr($i) [$ns node]
+  $dcAggr($i) set nodetype_ 3
 }
 for {set i 0} {$i < $numCore} {incr i} {
   set dcCore($i) [$ns node]
+  $dcCore($i) set nodetype_ 4
 }
 
 # Link

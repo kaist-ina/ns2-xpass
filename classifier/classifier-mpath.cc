@@ -57,8 +57,8 @@ static int slotcmp (const void *a, const void *b) {
 }
 
 class MultiPathForwarder : public Classifier {
-public:
-	MultiPathForwarder() : ns_(0), symmetric_(0), sorted_maxslot_(-1) {
+public:	MultiPathForwarder() : ns_(0), nodetype_(0), symmetric_(0), sorted_maxslot_(-1) {
+    bind("nodetype_", &nodetype_);
     bind_bool("symmetric_", &symmetric_);
   } 
 	virtual int classify(Packet* p) {
@@ -71,30 +71,29 @@ public:
         sorted_maxslot_ = maxslot_;
       }
       hdr_ip* iph = hdr_ip::access(p);
-
       struct hkey {
-        int src_dst_xor;
-        nsaddr_t lower_addr, higher_addr;
         int fid;
+        int nodetype;
+        nsaddr_t lower_addr, higher_addr;
       };
       struct hkey buf_;
       nsaddr_t src = mshift(iph->saddr());
       nsaddr_t dst = mshift(iph->daddr());
-      char* bufString;
+      int* bufInteger;
       int bufLength;
       unsigned int ms_;
 
-      buf_.src_dst_xor = (src ^ dst) & 0x0000ffff;
+      buf_.nodetype = nodetype_;
       buf_.lower_addr = (src < dst) ? src : dst;
       buf_.higher_addr = (src > dst) ? src : dst;
       buf_.fid = iph->flowid();
 
-      bufString = (char*) &buf_;
-      bufLength = sizeof(hkey);
+      bufInteger = (int*) &buf_;
+      bufLength = sizeof(hkey)/sizeof(int);
 
-      ms_ = (unsigned int)HashString(bufString, bufLength);
+      ms_ = (unsigned int)HashString(bufInteger, bufLength);
       ms_ %= (maxslot_ + 1);
-      int fail = ms_;
+      unsigned int fail = ms_;
       do {
         cl = ms_++;
         ms_ %= (maxslot_ + 1);
@@ -108,23 +107,29 @@ public:
     }
     return cl;
 	}
+
 private:
 	int ns_;
   // Symmetric Routing
   // "True" for symmetric routing,
   // "False" for asymmetric routing (default)
+  int nodetype_;
   int symmetric_;
   int sorted_maxslot_;
 
   static unsigned int
-  HashString(register const char *bytes, int length) {
+  HashString(register const int *ints, int length) {
     register unsigned int result;
     register int i;
 
     result = 0;
     for (i = 0; i < length; i++) {
-      result += (result<<3) + *bytes++;
+      srand(*ints++);
+      int ran = rand();
+      result = result ^ ran;
     }
+    srand(result);
+    result = rand();
     return result;
   }
 };
