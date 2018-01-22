@@ -353,7 +353,7 @@ Node instproc add-routes {id ifs} {
 			# 3. install the mclassifier in the node classifier_
 			#
 			set mpathClsfr_($id) [new Classifier/MultiPath]
-                        $mpathClsfr($id) set nodetype_ $nodetype_
+                        $mpathClsfr_($id) set nodetype_ $nodetype_
 			if {$routes_($id) > 0} {
 				assert "$routes_($id) == 1"
 				$mpathClsfr_($id) installNext \
