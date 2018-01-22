@@ -168,6 +168,7 @@ protected:
 	LIST_ENTRY(Node) entry;  // declare list entry structure
 	int address_;
 	int nodeid_; 		 // for nam use
+        int nodetype_;
 
 	// Nam tracing facility
         Tcl_Channel namChan_;

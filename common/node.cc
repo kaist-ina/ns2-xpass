@@ -103,13 +103,14 @@ char Node::nwrk_[NODE_NAMLOG_BUFSZ];
 int NixRoutingUsed = -1;
 
 Node::Node() : 
-	address_(-1), nodeid_ (-1), namChan_(0),
+	address_(-1), nodeid_ (-1), nodetype_(0), namChan_(0),
 	rtnotif_(NULL),
 #ifdef HAVE_STL
 	nixnode_(NULL),
 #endif //HAVE_STL
 	energy_model_(NULL), location_(NULL)
 {
+        bind("nodetype_", &nodetype_);
 	LIST_INIT(&ifhead_);
 	LIST_INIT(&linklisthead_);
 	insert(&(Node::nodehead_)); // insert self into static list of nodes
