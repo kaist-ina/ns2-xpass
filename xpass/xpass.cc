@@ -25,8 +25,12 @@ void CreditStopTimer::expire(Event *) {
   a_->send_credit_stop();
 }
 
-void RetransmitTimer::expire(Event *) {
-  a_->handle_retransmit();
+void SenderRetransmitTimer::expire(Event *) {
+  a_->handle_sender_retransmit();
+}
+
+void ReceiverRetransmitTimer::expire(Event *) {
+  a_->handle_receiver_retransmit();
 }
 
 void XPassAgent::delay_bind_init_all() {
@@ -41,6 +45,7 @@ void XPassAgent::delay_bind_init_all() {
   delay_bind_init_one("w_init_");
   delay_bind_init_one("min_w_");
   delay_bind_init_one("retransmit_timeout_");
+  delay_bind_init_one("default_credit_stop_timeout_");
   delay_bind_init_one("min_jitter_");
   delay_bind_init_one("max_jitter_");
   Agent::delay_bind_init_all();
@@ -86,6 +91,10 @@ int XPassAgent::delay_bind_dispatch(const char *varName, const char *localName,
     return TCL_OK;
   }
   if (delay_bind(varName, localName, "retransmit_timeout_", &retransmit_timeout_,
+                 tracer)) {
+    return TCL_OK;
+  }
+  if (delay_bind(varName, localName, "default_credit_stop_timeout_", &default_credit_stop_timeout_,
                  tracer)) {
     return TCL_OK;
   }
@@ -142,6 +151,9 @@ void XPassAgent::recv(Packet* pkt, Handler*) {
     case PT_XPASS_CREDIT_STOP:
       recv_credit_stop(pkt);
       break;
+    case PT_XPASS_NACK:
+      recv_nack(pkt);
+      break;
     default:
       break;
   }
@@ -169,7 +181,7 @@ void XPassAgent::recv_credit(Packet *pkt) {
 
   switch (credit_recv_state_) {
     case XPASS_RECV_CREDIT_REQUEST_SENT:
-      retransmit_timer_.force_cancel();
+      sender_retransmit_timer_.force_cancel();
       credit_recv_state_ = XPASS_RECV_CREDIT_RECEIVING;
     case XPASS_RECV_CREDIT_RECEIVING:
       // send data
@@ -188,6 +200,10 @@ void XPassAgent::recv_credit(Packet *pkt) {
       break;
     case XPASS_RECV_CLOSED:
       break;
+    case XPASS_RECV_CLOSE_WAIT:
+      // accumulate credit count to check if credit stop has been delivered
+      credit_recved_++;
+      break;
   }
 }
 
@@ -201,7 +217,6 @@ void XPassAgent::recv_data(Packet *pkt) {
     fprintf(stderr, "ERROR: Credit Sequence number is reverted.\n");
     exit(1);
   }
-
   credit_total_ += (distance + 1);
   credit_dropped_ += distance;
 
@@ -209,6 +224,21 @@ void XPassAgent::recv_data(Packet *pkt) {
 
   process_ack(pkt);
   update_rtt(pkt);
+}
+
+void XPassAgent::recv_nack(Packet *pkt) {
+  hdr_tcp *tcph = hdr_tcp::access(pkt);
+  switch (credit_recv_state_) {
+    case XPASS_RECV_CREDIT_STOP_SENT:
+    case XPASS_RECV_CLOSE_WAIT:
+    case XPASS_RECV_CLOSED:
+      send(construct_credit_request(), 0);
+      credit_recv_state_ = XPASS_RECV_CREDIT_REQUEST_SENT;
+    case XPASS_RECV_CREDIT_REQUEST_SENT:
+    case XPASS_RECV_CREDIT_RECEIVING:
+      // set t_seqno_ for retransmission
+      t_seqno_ = tcph->ackno();
+  }
 }
 
 void XPassAgent::recv_credit_stop(Packet *pkt) {
@@ -220,12 +250,33 @@ void XPassAgent::recv_credit_stop(Packet *pkt) {
   credit_send_state_ = XPASS_SEND_CLOSED;
 }
 
-void XPassAgent::handle_retransmit() {
+void XPassAgent::handle_sender_retransmit() {
   switch (credit_recv_state_) {
     case XPASS_RECV_CREDIT_REQUEST_SENT:
       send(construct_credit_request(), 0);
-      retransmit_timer_.resched(retransmit_timeout_);
+      sender_retransmit_timer_.resched(retransmit_timeout_);
       break;
+    case XPASS_RECV_CREDIT_STOP_SENT:
+      credit_recv_state_ = XPASS_RECV_CLOSE_WAIT;
+      credit_recved_ = 0;
+      sender_retransmit_timer_.resched((rtt_ > 0) ? rtt_ : default_credit_stop_timeout_); 
+      break;
+    case XPASS_RECV_CLOSE_WAIT:
+      if (credit_recved_ == 0) {
+        credit_recv_state_ = XPASS_RECV_CLOSED;
+        sender_retransmit_timer_.force_cancel();
+        return;
+      }
+      // retransmit credit_stop
+      send_credit_stop();
+      break;
+  }
+}
+
+void XPassAgent::handle_receiver_retransmit() {
+  if (wait_retransmission_) {
+    send(construct_nack(recv_next_), 0);
+    receiver_retransmit_timer_.resched(retransmit_timeout_);
   }
 }
 
@@ -328,7 +379,6 @@ Packet* XPassAgent::construct_data(Packet *credit) {
     fprintf(stderr, "ERROR: datapacket has length of less than zero\n");
     exit(1);
   }
-
   tcph->seqno() = t_seqno_;
   tcph->ackno() = recv_next_;
   tcph->hlen() = xpass_hdr_size_;
@@ -340,6 +390,24 @@ Packet* XPassAgent::construct_data(Packet *credit) {
   xph->credit_seq() = credit_xph->credit_seq();
   
   t_seqno_ += datalen;
+
+  return p;
+}
+
+Packet* XPassAgent::construct_nack(seq_t seq_no) {
+  Packet *p = allocpkt();
+  if (!p) {
+    fprintf(stderr, "ERROR: allockpkt() failed\n");
+    exit(1);
+  }
+  hdr_tcp *tcph = hdr_tcp::access(p);
+  hdr_cmn *cmnh = hdr_cmn::access(p);
+
+  tcph->ackno() = seq_no;
+  tcph->hlen() = xpass_hdr_size_; 
+
+  cmnh->size() = min_ethernet_size_;
+  cmnh->ptype() = PT_XPASS_NACK;
 
   return p;
 }
@@ -371,7 +439,9 @@ void XPassAgent::send_credit() {
 
 void XPassAgent::send_credit_stop() {
   send(construct_credit_stop(), 0);
-  credit_recv_state_ = XPASS_RECV_CLOSED;
+  // set on timer
+  sender_retransmit_timer_.resched(rtt_ > 0 ? (2. * rtt_) : default_credit_stop_timeout_);    
+  credit_recv_state_ = XPASS_RECV_CREDIT_STOP_SENT; //Later changes to XPASS_RECV_CLOSE_WAIT -> XPASS_RECV_CLOSED
 }
 
 void XPassAgent::advance_bytes(seq_t nb) {
@@ -387,7 +457,7 @@ void XPassAgent::advance_bytes(seq_t nb) {
 
   // send credit request
   send(construct_credit_request(), 0);
-  retransmit_timer_.sched(retransmit_timeout_);
+  sender_retransmit_timer_.sched(retransmit_timeout_);
 
   // XPASS_RECV_CLOSED -> XPASS_RECV_CREDIT_REQUEST_SENT
   credit_recv_state_ = XPASS_RECV_CREDIT_REQUEST_SENT;
@@ -397,16 +467,25 @@ void XPassAgent::process_ack(Packet *pkt) {
   hdr_cmn *cmnh = hdr_cmn::access(pkt);
   hdr_tcp *tcph = hdr_tcp::access(pkt);
   int datalen = cmnh->size() - tcph->hlen();
-
-  if (tcph->seqno() != recv_next_) {
-    printf("[%d] %lf: data loss detected. (expected = %ld, received = %ld)\n",
-           fid_, now(), recv_next_, tcph->seqno());
-  }
   if (datalen < 0) {
     fprintf(stderr, "ERROR: negative length packet has been detected.\n");
     exit(1);
   }
-  recv_next_ += datalen;
+  if (tcph->seqno() > recv_next_) {
+    printf("[%d] %lf: data loss detected. (expected = %ld, received = %ld)\n",
+           fid_, now(), recv_next_, tcph->seqno());
+    if (!wait_retransmission_) {
+      wait_retransmission_ = true;
+      send(construct_nack(recv_next_), 0);
+      receiver_retransmit_timer_.resched(retransmit_timeout_);
+    }
+  } else if (tcph->seqno() == recv_next_) {
+    if (wait_retransmission_) {
+      wait_retransmission_ = false;
+      receiver_retransmit_timer_.force_cancel();
+    }
+    recv_next_ += datalen;
+  }
 }
 
 void XPassAgent::update_rtt(Packet *pkt) {
