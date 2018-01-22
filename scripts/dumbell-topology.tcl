@@ -28,6 +28,7 @@ proc finish {} {
   puts "Simulation terminated successfully."
   exit 0
 }
+#$ns trace-all $nt
 
 puts "Creating Nodes..."
 set left_gateway [$ns node]
@@ -59,7 +60,6 @@ for {set i 0} {$i < $N} {incr i} {
 
 $ns duplex-link $left_gateway $right_gateway $linkBW $linkLatency XPassDropTail
 #$ns trace-queue $left_gateway $right_gateway $nt
-#$ns trace-all $nt
 
 puts "Creating Agents..."
 Agent/XPass set max_credit_rate_ $creditRate
