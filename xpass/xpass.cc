@@ -109,7 +109,7 @@ int XPassAgent::delay_bind_dispatch(const char *varName, const char *localName,
 
 void XPassAgent::init() {
   w_ = w_init_;
-  cur_credit_rate_ = (int)(alpha_ * max_credit_rate_);
+//  cur_credit_rate_ = (int)(alpha_ * max_credit_rate_);
   last_credit_rate_update_ = now();
 }
 
@@ -165,7 +165,14 @@ void XPassAgent::recv_credit_request(Packet *pkt) {
 
   switch (credit_send_state_) {
     case XPASS_SEND_CLOSED:
+      double lalpha;
       init();
+      if (xph->sendbuffer_ >= 40) {
+        lalpha = alpha_;
+      } else {
+        lalpha = alpha_ * xph->sendbuffer_ / 40.0;
+      } 
+      cur_credit_rate_ = (int)(lalpha * max_credit_rate_);
       fst_ = xph->credit_sent_time();
       // need to start to send credits.
       send_credit();
@@ -177,17 +184,20 @@ void XPassAgent::recv_credit_request(Packet *pkt) {
 }
 
 void XPassAgent::recv_credit(Packet *pkt) {
-  hdr_tcp* tcph = hdr_tcp::access(pkt);
-
+  credit_recved_rtt_++;
   switch (credit_recv_state_) {
     case XPASS_RECV_CREDIT_REQUEST_SENT:
       sender_retransmit_timer_.force_cancel();
       credit_recv_state_ = XPASS_RECV_CREDIT_RECEIVING;
+      // first sender RTT.
+      rtt_ = now() - rtt_;
+      last_credit_recv_update_ = now();
     case XPASS_RECV_CREDIT_RECEIVING:
       // send data
       if (datalen_remaining() > 0) {
         send(construct_data(pkt), 0);
       }
+ 
       if (datalen_remaining() == 0) {
         if (credit_stop_timer_.status() != TIMER_IDLE) {
           fprintf(stderr, "Error: CreditStopTimer seems to be scheduled more than once.\n");
@@ -196,13 +206,35 @@ void XPassAgent::recv_credit(Packet *pkt) {
         // Because ns2 does not allow sending two consecutive packets, 
         // credit_stop_timer_ schedules CREDIT_STOP packet with no delay.
         credit_stop_timer_.sched(0);
+      } else if (now() - last_credit_recv_update_ >= rtt_) {
+        if (credit_recved_rtt_ >= pkt_remaining()) {
+          // Early credit stop
+          if (credit_stop_timer_.status() != TIMER_IDLE) {
+            fprintf(stderr, "Error: CreditStopTimer seems to be scheduled more than once.\n");
+            exit(1);
+          }
+          // Because ns2 does not allow sending two consecutive packets, 
+          // credit_stop_timer_ schedules CREDIT_STOP packet with no delay.
+          credit_stop_timer_.sched(0);
+        }
+        credit_recved_rtt_ = 0;
+        last_credit_recv_update_ = now();
       }
       break;
-    case XPASS_RECV_CLOSED:
+    case XPASS_RECV_CREDIT_STOP_SENT:
+      if (datalen_remaining() > 0) {
+        send(construct_data(pkt), 0);
+      } else {
+        credit_wasted_++;
+      }
+      credit_recved_++;
       break;
     case XPASS_RECV_CLOSE_WAIT:
       // accumulate credit count to check if credit stop has been delivered
-      credit_recved_++;
+      credit_wasted_++;
+      break;
+    case XPASS_RECV_CLOSED:
+      credit_wasted_++;
       break;
   }
 }
@@ -258,19 +290,32 @@ void XPassAgent::handle_sender_retransmit() {
       sender_retransmit_timer_.resched(retransmit_timeout_);
       break;
     case XPASS_RECV_CREDIT_STOP_SENT:
-      credit_recv_state_ = XPASS_RECV_CLOSE_WAIT;
-      credit_recved_ = 0;
-      sender_retransmit_timer_.resched((rtt_ > 0) ? rtt_ : default_credit_stop_timeout_); 
+      if (datalen_remaining() > 0) {
+        credit_recv_state_ = XPASS_RECV_CREDIT_REQUEST_SENT;
+        send(construct_credit_request(), 0);
+        sender_retransmit_timer_.resched(retransmit_timeout_);
+      } else {
+        credit_recv_state_ = XPASS_RECV_CLOSE_WAIT;
+        credit_recved_ = 0;
+        sender_retransmit_timer_.resched((rtt_ > 0) ? rtt_ : default_credit_stop_timeout_); 
+      }
       break;
     case XPASS_RECV_CLOSE_WAIT:
       if (credit_recved_ == 0) {
+        FILE *waste_out = fopen("outputs/waste.out","a");
+
         credit_recv_state_ = XPASS_RECV_CLOSED;
         sender_retransmit_timer_.force_cancel();
+        fprintf(waste_out, "%d,%ld,%d\n", fid_, curseq_-1, credit_wasted_);
+        fclose(waste_out); 
         return;
       }
       // retransmit credit_stop
       send_credit_stop();
       break;
+    case XPASS_RECV_CLOSED:
+      fprintf(stderr, "Sender Retransmit triggered while connection is closed.");
+      exit(1);
   }
 }
 
@@ -287,6 +332,7 @@ Packet* XPassAgent::construct_credit_request() {
     fprintf(stderr, "ERROR: allockpkt() failed\n");
     exit(1);
   }
+
   hdr_tcp *tcph = hdr_tcp::access(p);
   hdr_cmn *cmnh = hdr_cmn::access(p);
   hdr_xpass *xph = hdr_xpass::access(p);
@@ -300,6 +346,11 @@ Packet* XPassAgent::construct_credit_request() {
 
   xph->credit_seq() = 0;
   xph->credit_sent_time_ = now();
+  xph->sendbuffer_ = pkt_remaining();
+
+  // to measure rtt between credit request and first credit
+  // for sender.
+  rtt_ = now();
 
   return p;
 }
@@ -373,7 +424,7 @@ Packet* XPassAgent::construct_data(Packet *credit) {
   hdr_cmn *cmnh = hdr_cmn::access(p);
   hdr_xpass *xph = hdr_xpass::access(p);
   hdr_xpass *credit_xph = hdr_xpass::access(credit);
-  int datalen = (int)min(max_ethernet_size_ - xpass_hdr_size_,
+  int datalen = (int)min(max_segment(),
                          datalen_remaining());
 
   if (datalen <= 0) {
