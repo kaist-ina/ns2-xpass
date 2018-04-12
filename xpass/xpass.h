@@ -10,6 +10,7 @@
 
 typedef enum XPASS_SEND_STATE_ {
   XPASS_SEND_CLOSED,
+  XPASS_SEND_CLOSE_WAIT,
   XPASS_SEND_CREDIT_SENDING,
   XPASS_SEND_CREDIT_STOP_RECEIVED,
   XPASS_SEND_NSTATE,
@@ -78,18 +79,27 @@ protected:
   XPassAgent *a_;
 };
 
+class FCTTimer: public TimerHandler {
+public:
+  FCTTimer(XPassAgent *a): TimerHandler(), a_(a) { }
+protected:
+  virtual void expire(Event *);
+  XPassAgent *a_;
+};
+
 class XPassAgent: public Agent {
   friend class SendCreditTimer;
   friend class CreditStopTimer;
   friend class SenderRetransmitTimer;
   friend class ReceiverRetransmitTimer;
+  friend class FCTTimer;
 public:
   XPassAgent(): Agent(PT_XPASS_DATA), credit_send_state_(XPASS_SEND_CLOSED),
                 credit_recv_state_(XPASS_RECV_CLOSED), last_credit_rate_update_(-0.0),
                 credit_total_(0), credit_dropped_(0), can_increase_w_(false),
                 send_credit_timer_(this), credit_stop_timer_(this), 
                 sender_retransmit_timer_(this), receiver_retransmit_timer_(this),
-                curseq_(1), t_seqno_(1), recv_next_(1),
+                fct_timer_(this), curseq_(1), t_seqno_(1), recv_next_(1),
                 c_seqno_(1), c_recv_next_(1), rtt_(-0.0),
                 credit_recved_(0), wait_retransmission_(false),
                 credit_wasted_(0), credit_recved_rtt_(0), last_credit_recv_update_(0) { }
@@ -108,6 +118,9 @@ protected:
   int min_ethernet_size_;
   // maximum Ethernet frame size (= maximum data packet size)
   int max_ethernet_size_;
+
+  // Experiment ID
+  int exp_id_;
 
   // If min_credit_size_ and max_credit_size_ are the same, 
   // credit size is determined statically. Otherwise, if
@@ -157,6 +170,7 @@ protected:
   CreditStopTimer credit_stop_timer_;
   SenderRetransmitTimer sender_retransmit_timer_;
   ReceiverRetransmitTimer receiver_retransmit_timer_;
+  FCTTimer fct_timer_;
 
   // the highest sequence number produced by app.
   seq_t curseq_;
@@ -173,6 +187,7 @@ protected:
   double rtt_;
   // flow start time
   double fst_;
+  double fct_;
 
   // retransmission time out
   double retransmit_timeout_;
@@ -215,6 +230,7 @@ protected:
 
   void handle_sender_retransmit();
   void handle_receiver_retransmit();
+  void handle_fct();
   void process_ack(Packet *pkt);
   void update_rtt(Packet *pkt);
 

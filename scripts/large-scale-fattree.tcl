@@ -1,10 +1,18 @@
 set ns [new Simulator]
+
+if {$argc < 1} {
+  puts "USAGE: ./ns scripts/large-scale-fattree.tcl {experiment_id}"
+  exit 1
+}
+
 #
 # Flow configurations
 #
 set numFlow 100000
 set workload "cachefollower" ;# cachefollower, mining, search, webserver
 set linkLoad 0.6 ;# ranges from 0.0 to 1.0
+set expID [expr int([lindex $argv 0])]
+puts "expID = $expID"
 
 #
 # Toplogy configurations
@@ -54,8 +62,8 @@ set simEndTime 60
 # Output file
 file mkdir "outputs"
 set nt [open outputs/trace.out w]
-set fct_out [open outputs/fct.out w]
-set wst_out [open outputs/waste.out w]
+set fct_out [open "outputs/fct_$expID.out" w]
+set wst_out [open "outputs/waste_$expID.out" w]
 puts $fct_out "Flow ID,Flow Size (bytes),Flow Completion Time (secs)"
 puts $wst_out "Flow ID,Flow Size (bytes),Wasted Credit"
 close $fct_out
@@ -86,6 +94,7 @@ Agent/XPass set min_w_ 0.01
 Agent/XPass set retransmit_timeout_ 0.0001
 Agent/XPass set min_jitter_ $minJitter
 Agent/XPass set max_jitter_ $maxJitter
+Agent/XPass set exp_id_ $expID
 
 Queue/XPassDropTail set credit_limit_ $creditBuffer
 Queue/XPassDropTail set max_tokens_ $maxCreditBurst

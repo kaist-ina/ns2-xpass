@@ -33,6 +33,10 @@ void ReceiverRetransmitTimer::expire(Event *) {
   a_->handle_receiver_retransmit();
 }
 
+void FCTTimer::expire(Event *) {
+  a_->handle_fct();
+}
+
 void XPassAgent::delay_bind_init_all() {
   delay_bind_init_one("max_credit_rate_");
   delay_bind_init_one("alpha_");
@@ -48,6 +52,7 @@ void XPassAgent::delay_bind_init_all() {
   delay_bind_init_one("default_credit_stop_timeout_");
   delay_bind_init_one("min_jitter_");
   delay_bind_init_one("max_jitter_");
+  delay_bind_init_one("exp_id_");
   Agent::delay_bind_init_all();
 }
 
@@ -102,6 +107,9 @@ int XPassAgent::delay_bind_dispatch(const char *varName, const char *localName,
     return TCL_OK;
   }
   if (delay_bind(varName, localName, "min_jitter_", &min_jitter_, tracer)) {
+    return TCL_OK;
+  }
+  if (delay_bind(varName, localName, "exp_id_", &exp_id_, tracer)) {
     return TCL_OK;
   }
   return Agent::delay_bind_dispatch(varName, localName, tracer);
@@ -164,6 +172,8 @@ void XPassAgent::recv_credit_request(Packet *pkt) {
   hdr_xpass *xph = hdr_xpass::access(pkt);
 
   switch (credit_send_state_) {
+    case XPASS_SEND_CLOSE_WAIT:
+      fct_timer_.force_cancel();
     case XPASS_SEND_CLOSED:
       double lalpha;
       init();
@@ -207,7 +217,7 @@ void XPassAgent::recv_credit(Packet *pkt) {
         // credit_stop_timer_ schedules CREDIT_STOP packet with no delay.
         credit_stop_timer_.sched(0);
       } else if (now() - last_credit_recv_update_ >= rtt_) {
-        if (credit_recved_rtt_ >= pkt_remaining()) {
+        if (credit_recved_rtt_ >= (1 * pkt_remaining())) {
           // Early credit stop
           if (credit_stop_timer_.status() != TIMER_IDLE) {
             fprintf(stderr, "Error: CreditStopTimer seems to be scheduled more than once.\n");
@@ -275,10 +285,19 @@ void XPassAgent::recv_nack(Packet *pkt) {
 }
 
 void XPassAgent::recv_credit_stop(Packet *pkt) {
-  FILE *fct_out = fopen("outputs/fct.out","a");
-
+  fct_ = now() - fst_;
+  fct_timer_.sched(default_credit_stop_timeout_);
   send_credit_timer_.force_cancel();
-  fprintf(fct_out,"%d,%ld,%.10lf\n", fid_, recv_next_-1, now()-fst_);
+  credit_send_state_ = XPASS_SEND_CLOSE_WAIT;
+}
+
+void XPassAgent::handle_fct() {
+  char foname[40];
+  sprintf(foname, "outputs/fct_%d.out", exp_id_);
+
+  FILE *fct_out = fopen(foname,"a");
+
+  fprintf(fct_out, "%d,%ld,%.10lf\n", fid_, recv_next_-1, fct_);
   fclose(fct_out);
   credit_send_state_ = XPASS_SEND_CLOSED;
 }
@@ -302,7 +321,10 @@ void XPassAgent::handle_sender_retransmit() {
       break;
     case XPASS_RECV_CLOSE_WAIT:
       if (credit_recved_ == 0) {
-        FILE *waste_out = fopen("outputs/waste.out","a");
+        char foname[40];
+        sprintf(foname, "outputs/waste_%d.out", exp_id_);
+
+        FILE *waste_out = fopen(foname,"a");
 
         credit_recv_state_ = XPASS_RECV_CLOSED;
         sender_retransmit_timer_.force_cancel();
