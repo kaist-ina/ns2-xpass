@@ -61,7 +61,7 @@ set simEndTime 60
 
 # Output file
 file mkdir "outputs"
-set nt [open outputs/trace.out w]
+set nt [open "outputs/trace_$expID.out" w]
 set fct_out [open "outputs/fct_$expID.out" w]
 set wst_out [open "outputs/waste_$expID.out" w]
 puts $fct_out "Flow ID,Flow Size (bytes),Flow Completion Time (secs)"
