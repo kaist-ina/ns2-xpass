@@ -52,7 +52,6 @@ void XPassAgent::delay_bind_init_all() {
   delay_bind_init_one("default_credit_stop_timeout_");
   delay_bind_init_one("min_jitter_");
   delay_bind_init_one("max_jitter_");
-  delay_bind_init_one("exp_id_");
   Agent::delay_bind_init_all();
 }
 
@@ -107,9 +106,6 @@ int XPassAgent::delay_bind_dispatch(const char *varName, const char *localName,
     return TCL_OK;
   }
   if (delay_bind(varName, localName, "min_jitter_", &min_jitter_, tracer)) {
-    return TCL_OK;
-  }
-  if (delay_bind(varName, localName, "exp_id_", &exp_id_, tracer)) {
     return TCL_OK;
   }
   return Agent::delay_bind_dispatch(varName, localName, tracer);
@@ -292,10 +288,7 @@ void XPassAgent::recv_credit_stop(Packet *pkt) {
 }
 
 void XPassAgent::handle_fct() {
-  char foname[40];
-  sprintf(foname, "outputs/fct_%d.out", exp_id_);
-
-  FILE *fct_out = fopen(foname,"a");
+  FILE *fct_out = fopen("outputs/fct.out","a");
 
   fprintf(fct_out, "%d,%ld,%.10lf\n", fid_, recv_next_-1, fct_);
   fclose(fct_out);
@@ -321,10 +314,7 @@ void XPassAgent::handle_sender_retransmit() {
       break;
     case XPASS_RECV_CLOSE_WAIT:
       if (credit_recved_ == 0) {
-        char foname[40];
-        sprintf(foname, "outputs/waste_%d.out", exp_id_);
-
-        FILE *waste_out = fopen(foname,"a");
+        FILE *waste_out = fopen("outputs/waste.out","a");
 
         credit_recv_state_ = XPASS_RECV_CLOSED;
         sender_retransmit_timer_.force_cancel();

@@ -119,9 +119,6 @@ protected:
   // maximum Ethernet frame size (= maximum data packet size)
   int max_ethernet_size_;
 
-  // Experiment ID
-  int exp_id_;
-
   // If min_credit_size_ and max_credit_size_ are the same, 
   // credit size is determined statically. Otherwise, if
   // min_credit_size_ != max_credit_size_, credit sizes is

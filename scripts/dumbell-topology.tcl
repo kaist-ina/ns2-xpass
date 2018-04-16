@@ -1,10 +1,5 @@
 set ns [new Simulator]
 
-if {$argc < 1} {
-  puts "USAGE: ./ns scripts/dumbell-topology.tcl {expriment_id}"
-  exit 1
-}
-
 # Configurations
 set N 2
 set ALPHA 0.5
@@ -19,12 +14,11 @@ set maxCrditBurst [expr 84*2] ;# bytes
 set creditRate [expr 64734895*4] ;# bytes / sec
 set creditRate2 [expr 64734895*4] ;# bytes / sec
 set interFlowDelay 0 ;# secs
-set expID [expr int([lindex $argv 0])]
 
 # Output file
 file mkdir "outputs"
-set nt [open outputs/trace_$expID.out w]
-set fct_out [open outputs/fct_$expID.out w]
+set nt [open outputs/trace.out w]
+set fct_out [open outputs/fct.out w]
 puts $fct_out "Flow ID,Flow Size (bytes),Flow Completion Time (secs)"
 close $fct_out
 
@@ -82,7 +76,6 @@ puts "Creating Agents..."
 #Agent/XPass set max_credit_rate_ $creditRate
 Agent/XPass set cur_credit_rate_ [expr $ALPHA*$creditRate]
 Agent/XPass set w_ $w_init
-Agent/XPass set exp_id_ $expID
 
 for {set i 0} {$i < $N} {incr i} {
   set sender($i) [new Agent/XPass]
