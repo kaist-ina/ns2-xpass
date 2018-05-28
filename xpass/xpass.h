@@ -8,6 +8,14 @@
 #include <assert.h>
 #include <math.h>
 
+#define AIR 0
+#define ECS 0
+
+#define CFC_ORIG 0
+#define CFC_BIC 1
+
+#define CFC_ALG CFL_BIC
+
 typedef enum XPASS_SEND_STATE_ {
   XPASS_SEND_CLOSED,
   XPASS_SEND_CLOSE_WAIT,
@@ -141,13 +149,14 @@ protected:
   // should always less than or equal to max_credit_rate_.
   // in Bytes/sec
   int cur_credit_rate_;
+  // maximum credit rate for 10G NIC.
+  int base_credit_rate_;
   // initial cur_credit_rate_ = alpha_ * max_credit_rate_
   double alpha_;
+  //
+  double target_loss_scaling_;
   // last time for cur_credit_rate_ update with feedback control.
   double last_credit_rate_update_;
-  // target loss scaling factor.
-  // target loss = (1 - cur_credit_rate/max_credit_rate)*target_loss_scaling.
-  double target_loss_scaling_;
   // total number of credit = # credit received + # credit dropped.
   int credit_total_;
   // number of credit dropped.
@@ -165,6 +174,13 @@ protected:
   double max_jitter_;
   // minimum jitter: -1.0 ~ 1.0 (wrt. inter-credit gap)
   double min_jitter_;
+
+#if CFC_ALG == CFC_BIC
+  int bic_target_rate_;
+  int bic_s_min_;
+  int bic_s_max_;
+  double bic_beta_;
+#endif
 
   SendCreditTimer send_credit_timer_;
   CreditStopTimer credit_stop_timer_;
