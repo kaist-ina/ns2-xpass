@@ -105,6 +105,8 @@ struct hdr_tcp {
 #define CWND_HALF_WITH_MIN	0x00000200
 #define TCP_IDLE		0x00000400
 #define NO_OUTSTANDING_DATA     0x00000800
+#define CLOSE_SSTHRESH_DCTCP	0x00001000
+#define CLOSE_CWND_DCTCP	0x00002000
 
 /*
  * tcp_tick_:
@@ -433,6 +435,13 @@ protected:
 
 	/* Used for ECN */
 	int ecn_;		/* Explicit Congestion Notification */
+
+	// DCTCP
+	int dctcp_;
+	double dctcp_alpha_;
+	double dctcp_g_;
+	double dctcp_alpha_print_;
+
 	int cong_action_;	/* Congestion Action.  True to indicate
 				   that the sender responded to congestion. */
         int ecn_burst_;		/* True when the previous ACK packet

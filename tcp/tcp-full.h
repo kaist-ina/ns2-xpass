@@ -120,7 +120,9 @@ public:
         	last_send_time_(-1.0), infinite_send_(FALSE), irs_(-1),
         	delack_timer_(this), flags_(0),
         	state_(TCPS_CLOSED), recent_ce_(FALSE),
-        	last_state_(TCPS_CLOSED), rq_(rcv_nxt_), last_ack_sent_(-1) { }
+        	last_state_(TCPS_CLOSED), rq_(rcv_nxt_), last_ack_sent_(-1),
+                dctcp_total(0), dctcp_marked(0), dctcp_alpha_update_seq(0),
+                dctcp_maxseq(0), ce_transition(0) { }
 
 	~FullTcpAgent() { cancel_timers(); rq_.clear(); }
 	virtual void recv(Packet *pkt, Handler*);
@@ -183,6 +185,8 @@ protected:
 	void finish();
 	void reset_rtx_timer(int);  	// adjust the rtx timer
 
+        void update_dctcp_alpha(Packet*);
+
 	virtual void timeout_action();	// what to do on rtx timeout
 	virtual void dupack_action();	// what to do on dup acks
 	virtual void pack_action(Packet*);	// action on partial acks
@@ -242,6 +246,13 @@ protected:
 	int last_ack_sent_; /* ackno field from last segment we sent */
 	double recent_;		// ts on SYN written by peer
 	double recent_age_;	// my time when recent_ was set
+
+        // DCTCP
+        seq_t dctcp_total;
+        seq_t dctcp_marked;
+        seq_t dctcp_alpha_update_seq;
+        seq_t dctcp_maxseq;
+        int ce_transition;
 
 	/*
 	 * setting iw, specific to tcp-full, called
