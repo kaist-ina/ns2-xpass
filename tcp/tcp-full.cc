@@ -2738,7 +2738,6 @@ void FullTcpAgent::update_dctcp_alpha(Packet *pkt)
 		dctcp_alpha_print_  = (1 - dctcp_g_) * dctcp_alpha_print_ + dctcp_g_ * temp_alpha;
 		dctcp_alpha_ = (1 - dctcp_g_) * dctcp_alpha_ + dctcp_g_ * temp_alpha;
 
-		printf("dctcp_makred = %d, dctcp_total = %d, temp_alpha = %lf, window=%d\n", dctcp_marked, dctcp_total, temp_alpha, window());
 		dctcp_marked = 0;
 		dctcp_total = 0;
 	}

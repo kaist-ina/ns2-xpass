@@ -1,8 +1,8 @@
-$infile='outputs/trace_0.out';
-$numflow=2;
+$infile='outputs/trace_8989.out';
+$numflow=10;
 $srcnode=0;
 $dstnode=1;
-$gran=0.001; # 1ms
+$gran=0.005; # 1ms
 
 
 @sum = (0) x $numflow;
@@ -22,7 +22,7 @@ if ($x[2] eq $srcnode) {
 # x[3]: dstnode
 if ($x[3] eq $dstnode) {
 # x[4]: pkt type
-if ($x[4] eq 'XPASS_DATA') {
+if ($x[4] eq 'XPASS_DATA' || $x[4] eq 'tcp') {
 # x[7]: flow id
 if ($x[7]<$numflow) {
   $sum[$x[7]]=$sum[$x[7]]+$x[5]

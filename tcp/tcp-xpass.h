@@ -1,117 +1,64 @@
-#ifndef _XPASS_XPASS_H_
-#define _XPASS_XPASS_H_
+#ifndef ns_tcp_xpass_h
+#define ns_tcp_xpass_h
 
-#include "agent.h"
-#include "packet.h"
-#include "tcp.h"
-#include "template.h"
-#include <assert.h>
-#include <math.h>
+#include "tcp-full.h"
+#include "../xpass/xpass.h"
+#include "../queue/queue.h"
+#include "flags.h"
 
-#define AIR 1
-#define ECS 1
-
-#define CFC_ORIG 0
-#define CFC_BIC 1
-
-#define CFC_ALG CFL_BIC
-
-typedef enum XPASS_SEND_STATE_ {
-  XPASS_SEND_CLOSED,
-  XPASS_SEND_CLOSE_WAIT,
-  XPASS_SEND_CREDIT_SENDING,
-  XPASS_SEND_CREDIT_STOP_RECEIVED,
-  XPASS_SEND_NSTATE,
-} XPASS_SEND_STATE;
-
-typedef enum XPASS_RECV_STATE_ {
-  XPASS_RECV_CLOSED,
-  XPASS_RECV_CLOSE_WAIT,
-  XPASS_RECV_CREDIT_REQUEST_SENT,
-  XPASS_RECV_CREDIT_RECEIVING,
-  XPASS_RECV_CREDIT_STOP_SENT,
-  XPASS_RECV_NSTATE,
-} XPASS_RECV_STATE;
-
-struct hdr_xpass {
-  // To measure RTT  
-  double credit_sent_time_;
-
-  // Credit sequence number
-  seq_t credit_seq_;
-
-  // temp variables for test
-  int sendbuffer_;
-
-  // For header access
-  static int offset_; // required by PacketHeaderManager
-  inline static hdr_xpass* access(const Packet* p) {
-    return (hdr_xpass*)p->access(offset_);
-  }
-
-  /* per-field member access functions */
-  double& credit_sent_time() { return (credit_sent_time_); }
-  seq_t& credit_seq() { return (credit_seq_); }
-};
-
-class XPassAgent;
-class SendCreditTimer: public TimerHandler {
+class TcpXPassAgent;
+class TcpXPassSendCreditTimer: public TimerHandler {
 public:
-  SendCreditTimer(XPassAgent *a): TimerHandler(), a_(a) { }
+  TcpXPassSendCreditTimer(TcpXPassAgent *a): TimerHandler(), a_(a) { }
 protected:
   virtual void expire(Event *);
-  XPassAgent *a_;
+  TcpXPassAgent *a_;
 };
 
-class CreditStopTimer: public TimerHandler {
+class TcpXPassCreditStopTimer: public TimerHandler {
 public:
-  CreditStopTimer(XPassAgent *a): TimerHandler(), a_(a) { }
+  TcpXPassCreditStopTimer(TcpXPassAgent *a): TimerHandler(), a_(a) { }
 protected:
   virtual void expire(Event *);
-  XPassAgent *a_;
+  TcpXPassAgent *a_;
 };
 
-class SenderRetransmitTimer: public TimerHandler {
+class TcpXPassSenderRetransmitTimer: public TimerHandler {
 public:
-  SenderRetransmitTimer(XPassAgent *a): TimerHandler(), a_(a) { }
+  TcpXPassSenderRetransmitTimer(TcpXPassAgent *a): TimerHandler(), a_(a) { }
 protected:
   virtual void expire(Event *);
-  XPassAgent *a_;
+  TcpXPassAgent *a_;
 };
 
-class ReceiverRetransmitTimer: public TimerHandler {
+class TcpXPassFCTTimer: public TimerHandler {
 public:
-  ReceiverRetransmitTimer(XPassAgent *a): TimerHandler(), a_(a) { }
+  TcpXPassFCTTimer(TcpXPassAgent *a): TimerHandler(), a_(a) { }
 protected:
   virtual void expire(Event *);
-  XPassAgent *a_;
+  TcpXPassAgent *a_;
 };
 
-class FCTTimer: public TimerHandler {
+class TcpXPassAgent: public FullTcpAgent {
+  friend class TcpXPassSendCreditTimer;
+  friend class TcpXPassCreditStopTimer;
+  friend class TcpXPassSenderRetransmitTimer;
+  friend class TcpXPassFCTTimer;
 public:
-  FCTTimer(XPassAgent *a): TimerHandler(), a_(a) { }
-protected:
-  virtual void expire(Event *);
-  XPassAgent *a_;
-};
-
-class XPassAgent: public Agent {
-  friend class SendCreditTimer;
-  friend class CreditStopTimer;
-  friend class SenderRetransmitTimer;
-  friend class ReceiverRetransmitTimer;
-  friend class FCTTimer;
-public:
-  XPassAgent(): Agent(PT_XPASS_DATA), credit_send_state_(XPASS_SEND_CLOSED),
+  TcpXPassAgent(): FullTcpAgent(), credit_send_state_(XPASS_SEND_CLOSED),
                 credit_recv_state_(XPASS_RECV_CLOSED), last_credit_rate_update_(-0.0),
                 credit_total_(0), credit_dropped_(0), can_increase_w_(false),
                 send_credit_timer_(this), credit_stop_timer_(this), 
-                sender_retransmit_timer_(this), receiver_retransmit_timer_(this),
-                fct_timer_(this), curseq_(1), t_seqno_(1), recv_next_(1),
+                sender_retransmit_timer_(this), fct_timer_(this),
                 c_seqno_(1), c_recv_next_(1), rtt_(-0.0),
                 credit_recved_(0), wait_retransmission_(false),
-                credit_wasted_(0), credit_recved_rtt_(0), last_credit_recv_update_(0) { }
-  virtual int command(int argc, const char*const* argv);
+                credit_wasted_(0), credit_recved_rtt_(0), last_credit_recv_update_(0) {
+                  sendbuffer_ = new PacketQueue;
+                }
+
+  ~TcpXPassAgent() {
+    delete sendbuffer_;
+  }
   virtual void recv(Packet*, Handler*);
 protected:
   virtual void delay_bind_init_all();
@@ -182,18 +129,17 @@ protected:
   double bic_beta_;
 #endif
 
-  SendCreditTimer send_credit_timer_;
-  CreditStopTimer credit_stop_timer_;
-  SenderRetransmitTimer sender_retransmit_timer_;
-  ReceiverRetransmitTimer receiver_retransmit_timer_;
-  FCTTimer fct_timer_;
+  TcpXPassSendCreditTimer send_credit_timer_;
+  TcpXPassCreditStopTimer credit_stop_timer_;
+  TcpXPassSenderRetransmitTimer sender_retransmit_timer_;
+  TcpXPassFCTTimer fct_timer_;
 
   // the highest sequence number produced by app.
-  seq_t curseq_;
+//  seq_t curseq_;
   // next sequence number to send
-  seq_t t_seqno_;
+//  seq_t t_seqno_;
   // next sequence number expected (acknowledging number)
-  seq_t recv_next_;
+//  seq_t recv_next_;
   // next credit sequence number to send
   seq_t c_seqno_;
   // next credit sequence number expected
@@ -222,21 +168,32 @@ protected:
   // temp variables
   int credit_wasted_;
 
-  inline double now() { return Scheduler::instance().clock(); }
-  seq_t datalen_remaining() { return (curseq_ - t_seqno_); }
+  PacketQueue *sendbuffer_;
+
+  seq_t datalen_remaining() { return (curseq_ + 1 - xpass_t_seqno()); }
   int max_segment() { return (max_ethernet_size_ - xpass_hdr_size_); }
   int pkt_remaining() { return ceil(datalen_remaining()/(double)max_segment()); }
   double avg_credit_size() { return (min_credit_size_ + max_credit_size_)/2.0; }
+  seq_t xpass_t_seqno() {
+    if (sendbuffer_->length() > 0) {
+      Packet *p = sendbuffer_->head();
+      hdr_tcp *tcph = hdr_tcp::access(p);
+      return tcph->seqno();
+    } else {
+      return t_seqno_;
+    }
+  }
+
+  virtual void sendpacket(seq_t seq, seq_t ack, int flags, int dlen, int why, Packet *p=0);
 
   void init();
   Packet* construct_credit_request();
   Packet* construct_credit_stop();
   Packet* construct_credit();
   Packet* construct_data(Packet *credit);
-  Packet* construct_nack(seq_t seq_no);
   void send_credit();
   void send_credit_stop();
-  void advance_bytes(seq_t nb);
+  void advance_packet(Packet *pkt);
 
   void recv_credit_request(Packet *pkt);
   void recv_credit(Packet *pkt);
@@ -245,12 +202,10 @@ protected:
   void recv_nack(Packet *pkt);
 
   void handle_sender_retransmit();
-  void handle_receiver_retransmit();
   void handle_fct();
-  void process_ack(Packet *pkt);
   void update_rtt(Packet *pkt);
 
   void credit_feedback_control();
 };
 
-#endif
+#endif // ns_tcp_xpass_h
