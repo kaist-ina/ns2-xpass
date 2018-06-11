@@ -204,7 +204,7 @@ void TcpXPassAgent::recv_credit(Packet *pkt) {
       last_credit_recv_update_ = now();
     case XPASS_RECV_CREDIT_RECEIVING:
       // send data
-      if (datalen_remaining() > 0) {
+      if (sendbuffer_->length() > 0) {
         send(construct_data(pkt), 0);
       } else {
         credit_wasted_++;
@@ -237,7 +237,7 @@ void TcpXPassAgent::recv_credit(Packet *pkt) {
 #endif
       break;
     case XPASS_RECV_CREDIT_STOP_SENT:
-      if (datalen_remaining() > 0) {
+      if (sendbuffer_->length() > 0) {
         send(construct_data(pkt), 0);
       } else {
         credit_wasted_++;
@@ -409,16 +409,18 @@ Packet* TcpXPassAgent::construct_credit() {
 }
 
 Packet* TcpXPassAgent::construct_data(Packet *credit) {
-
-  if (datalen_remaining() == 0) {
+  if (sendbuffer_->length() == 0) {
     return NULL;
   }
 
   Packet *p = sendbuffer_->deque();
 
   hdr_cmn *cmnh = hdr_cmn::access(p);
+  hdr_tcp *tcph = hdr_tcp::access(p);
   hdr_xpass *xph = hdr_xpass::access(p);
   hdr_xpass *credit_xph = hdr_xpass::access(credit);
+
+  int datalen = cmnh->size() - tcph->hlen();
 
   cmnh->ptype() = PT_XPASS_DATA;
 
