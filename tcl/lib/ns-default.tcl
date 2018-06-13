@@ -1249,7 +1249,7 @@ if [TclObject is-class Agent/TCP/FullTcp] {
         Agent/TCP/FullTcp set ecn_syn_ false; # Make SYN/ACK packet ECN-Capable?
         Agent/TCP/FullTcp set ecn_syn_wait_ 0; # Wait after marked SYN/ACK? 
         Agent/TCP/FullTcp set debug_ false;  # Added Sept. 16, 2007.
-
+  Agent/TCP/FullTcp set exp_id_ 0;
 	Agent/TCP/FullTcp/Newreno set recov_maxburst_ 2; # max burst dur recov
 
 	Agent/TCP/FullTcp/Sack set sack_block_size_ 8; # bytes in a SACK block
@@ -1658,3 +1658,5 @@ Queue/XPassRED set top_ 0.5
 Queue/XPassRED set bottom_ 0
 Queue/XPassRED set cautious_ 0
 Queue/XPassRED set feng_adaptive_ 0
+Queue/XPassRED set qidx_ 0
+Queue/XPassRED set exp_id_ 0

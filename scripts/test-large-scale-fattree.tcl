@@ -19,7 +19,7 @@ set baseCreditRate 64734895 ;# bytes/sec
 set K 65
 set B 250
 set B_host 1000
-set numFlow 10 ;#100000
+set numFlow 10000
 set workload "cachefollower" ;# cachefollower, mining, search, webserver
 set linkLoad 0.6 ;# ranges from 0.0 to 1.0
 set expID [expr int([lindex $argv 0])]
@@ -82,7 +82,7 @@ proc finish {} {
   puts "Simulation terminated successfully."
   exit 0
 }
-$ns trace-all $nt
+#$ns trace-all $nt
 
 # Basic parameter settings
 Agent/XPass set min_credit_size_ $minCreditSize
@@ -236,8 +236,11 @@ for {set i 0} {$i < $numTor} {incr i} {
     $queue_tor_aggr set trace_ 1
     $queue_tor_aggr set qidx_ $traceQueueCnt
     $queue_tor_aggr set exp_idx_ $expID
+    set ql_out [open "outputs/queue_exp${expID}_$traceQueueCnt.tr" w]
+    puts $ql_out "Now, Qavg, Qmax"
+    close $ql_out
     set traceQueueCnt [expr $traceQueueCnt + 1]
-
+    
     $ns simplex-link $dcAggr($j) $dcTor($i) [set cLinkRate]Gb $linkDelayTorAggr XPassRED
     set link_aggr_tor [$ns link $dcAggr($j) $dcTor($i)]
     set queue_aggr_tor [$link_aggr_tor queue]
@@ -258,6 +261,9 @@ for {set i 0} {$i < $numNode} {incr i} {
   $queue_host_tor set trace_ 1
   $queue_host_tor set qidx_ $traceQueueCnt
   $queue_tor_aggr set exp_idx_ $expID
+  set ql_out [open "outputs/queue_exp${expID}_$traceQueueCnt.tr" w]
+  puts $ql_out "Now, Qavg, Qmax"
+  close $ql_out
   set traceQueueCnt [expr $traceQueueCnt + 1]
 
   $ns simplex-link $dcTor($torIndex) $dcNode($i) [set cLinkRate]Gb $linkDelayHostTor XPassRED
@@ -267,6 +273,8 @@ for {set i 0} {$i < $numNode} {incr i} {
 }
 
 puts "Creating agents and flows..."
+Agent/TCP/FullTcp set exp_id_ $expID
+
 Agent/TCP/FullTcp/XPass set min_credit_size_ 84
 Agent/TCP/FullTcp/XPass set max_credit_size_ 84
 Agent/TCP/FullTcp/XPass set min_ethernet_size_ 84
@@ -282,6 +290,7 @@ Agent/TCP/FullTcp/XPass set min_jitter_ -0.1
 Agent/TCP/FullTcp/XPass set max_jitter_ 0.1
 Agent/TCP/FullTcp/XPass set exp_id_ $expID
 Agent/TCP/FullTcp/XPass set default_credit_stop_timeout_ 0.002 ;# 2ms
+Agent/TCP/FullTcp/XPass set xpass_hdr_size_ $xpassHdrSize
 
 Agent/TCP set ecn_ 1
 Agent/TCP set old_ecn_ 1
@@ -317,32 +326,25 @@ for {set i 0} {$i < $numFlow} {incr i} {
 
   set src_cluster [expr $src_nodeid/($numNode/$numTor)/4]
   set dst_cluster [expr $dst_nodeid/($numNode/$numTor)/4]
-  puts "src cluster=$src_cluster, dst cluster=$dst_cluster"
+#puts "src cluster=$src_cluster, dst cluster=$dst_cluster"
 
-  set sender($i) [new Agent/TCP/FullTcp]
-  set receiver($i) [new Agent/TCP/FullTcp]
-  if {$src_cluster < [expr 2*$deployStep]} {
-    puts "src cluster : xpass" 
+  if {$src_cluster < [expr 2*$deployStep] && $dst_cluster < [expr 2*$deployStep]} {
+#   puts "cluster : xpass-xpass" 
     set sender($i) [new Agent/TCP/FullTcp/XPass]
-  } else {
-    puts "src cluster : dctcp"
-    set sender($i) [new Agent/TCP/FullTcp]
-  }
-  if {$dst_cluster < [expr 2*$deployStep]} {
-    puts "dst cluster : xpass" 
     set receiver($i) [new Agent/TCP/FullTcp/XPass]
   } else {
-    puts "dst cluster : dctcp" 
+#   puts "cluster : dctcp-dctcp"
+    set sender($i) [new Agent/TCP/FullTcp]
     set receiver($i) [new Agent/TCP/FullTcp]
   }
-
+  
   if {$src_cluster == 0 || $src_cluster == 2} {
-    puts "send - rateHig : $creditRateHigh"
+#   puts "send - rateHig : $creditRateHigh"
     $sender($i) set max_credit_rate_ $creditRateHigh
   }
 
   if {$dst_cluster == 0 || $dst_cluster == 2} {
-    puts "recv - rateHig : $creditRateHigh"
+#   puts "recv - rateHig : $creditRateHigh"
     $receiver($i) set max_credit_rate_ $creditRateHigh
   }
 
@@ -378,7 +380,7 @@ proc sendBytes {} {
   }
 
   puts $flowfile "$nextTime $srcIndex($fidx) $dstIndex($fidx) $fsize"
-  puts "$nextTime $srcIndex($fidx) $dstIndex($fidx) $fsize"
+# puts "$nextTime $srcIndex($fidx) $dstIndex($fidx) $fsize"
   
   $ns at $nextTime "$sender($fidx) advance-bytes $fsize"
 

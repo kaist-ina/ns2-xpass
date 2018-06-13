@@ -1,6 +1,8 @@
 #include "xpass-red.h"
 #include <algorithm>
 
+#define MIN(A,B) ((A<B)?A:B)
+
 static class XPassREDClass: public TclClass {
 public:
   XPassREDClass(): TclClass("Queue/XPassRED") {}
@@ -59,6 +61,18 @@ void XPassRED::enque(Packet *p) {
   } else {
     REDQueue::enque(p);
   }
+
+#if LOG_QUEUE
+  if (trace_) {
+    double now = Scheduler::instance().clock();
+    int qlen = q_->byteLength() + credit_q_->byteLength();
+    if (qlen > qmax_) {
+      qmax_ = qlen;
+    }
+    qavg_ += MIN((now-last_sample_) / (double)LOG_GRAN, 1.0) * qlen;
+    last_sample_ = now;
+  }
+#endif
 }
 
 Packet* XPassRED::deque() {
@@ -73,10 +87,26 @@ Packet* XPassRED::deque() {
   if (packet && tokens_ >= pkt_size) {
     packet = credit_q_->deque();
     tokens_ -= pkt_size;
+#if LOG_QUEUE
+    if (trace_) {
+      double now = Scheduler::instance().clock();
+      int qlen = credit_q_->byteLength() + q_->byteLength();
+      qavg_ += MIN((now-last_sample_) / (double)LOG_GRAN, 1.0) * qlen;
+      last_sample_ = now;
+    }
+#endif
     return packet;
   }
 
   if (q_->byteLength() > 0) {
+#if LOG_QUEUE
+    if (trace_) {
+      double now = Scheduler::instance().clock();
+      int qlen = credit_q_->byteLength() + q_->byteLength();
+      qavg_ += MIN((now-last_sample_) / (double)LOG_GRAN, 1.0) * qlen;
+      last_sample_ = now;
+    }
+#endif
     return REDQueue::deque();
   }
 
@@ -87,6 +117,46 @@ Packet* XPassRED::deque() {
     fprintf(stderr, "Switch has non-zero queue, but timer was not set.\n");
     exit(1);
   }
-
+#if LOG_QUEUE
+  if (trace_) {
+    double now = Scheduler::instance().clock();    
+    int qlen = credit_q_->byteLength() + q_->byteLength();
+    qavg_ += MIN((now-last_sample_) / (double)LOG_GRAN, 1.0) * qlen;
+    last_sample_ = now;
+  }
+#endif
   return NULL;
 }
+
+#if LOG_QUEUE
+
+void XPassRED::logQueue() {
+  double now = Scheduler::instance().clock();
+  int qlen = credit_q_->byteLength() + q_->byteLength();
+  FILE *flog;
+
+  qavg_ += MIN((now-last_sample_) / (double)LOG_GRAN, 1.0) * qlen;
+
+  if (now >= 0.1) {
+    char fname[1024];
+    sprintf(fname,"outputs/queue_exp%d_%d.tr", exp_id_, qidx_);
+    flog = fopen(fname, "a");
+    fprintf(flog, "%lf %lf %d\n", now, qavg_, qmax_);
+    fclose(flog);
+  }
+
+  last_log_ = now;
+  last_sample_ = now;
+
+  qavg_ = 0.0;
+  qmax_ = 0;
+  if (trace_) {
+    LogTimer.resched(LOG_GRAN);
+  }
+}
+
+void EXPQueueLogTimer::expire(Event *) {
+  a_->logQueue();
+}
+
+#endif

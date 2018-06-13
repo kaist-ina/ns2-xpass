@@ -199,6 +199,7 @@ FullTcpAgent::delay_bind_init_all()
         delay_bind_init_one("ecn_syn_wait_");
         delay_bind_init_one("debug_");
         delay_bind_init_one("spa_thresh_");
+        delay_bind_init_one("exp_id_");
 
 	TcpAgent::delay_bind_init_all();
        
@@ -229,7 +230,7 @@ FullTcpAgent::delay_bind_dispatch(const char *varName, const char *localName, Tc
         if (delay_bind_bool(varName, localName, "ecn_syn_", &ecn_syn_, tracer)) return TCL_OK;
         if (delay_bind(varName, localName, "ecn_syn_wait_", &ecn_syn_wait_, tracer)) return TCL_OK;
         if (delay_bind_bool(varName, localName, "debug_", &debug_, tracer)) return TCL_OK;
-
+        if (delay_bind(varName, localName, "exp_id_", &exp_id_, tracer)) return TCL_OK;
         return TcpAgent::delay_bind_dispatch(varName, localName, tracer);
 }
 
@@ -364,6 +365,7 @@ FullTcpAgent::advance_bytes(seq_t nb)
 	case TCPS_LISTEN:
                 reset();
                 curseq_ = iss_ + nb;
+                fst_ = now();
                 connect();              // initiate new connection
 		break;
 
@@ -1309,6 +1311,13 @@ FullTcpAgent::newack(Packet* pkt)
 
 	if (ackno == maxseq_) {
 		cancel_rtx_timer();	// all data ACKd
+    if ((curseq_ > 0) && (ackno-1 == curseq_)) {
+      char foname[40];
+      sprintf(foname, "outputs/fct_%d.out", exp_id_);
+      FILE *fct_out = fopen(foname,"a");
+      fprintf(fct_out, "%d,%ld,%.10lf\n", fid_, curseq_, now()-fst_);
+      fclose(fct_out);
+    }
 	} else if (progress) {
 		set_rtx_timer();
 	}

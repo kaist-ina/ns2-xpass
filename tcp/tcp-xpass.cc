@@ -1,5 +1,6 @@
 #include "tcp-xpass.h"
-
+#define MAX(a,b) (((a) > (b)) ? (a) : (b))
+#include <assert.h>
 static class TcpXPassClass: public TclClass {
 public:
   TcpXPassClass(): TclClass("Agent/TCP/FullTcp/XPass") {}
@@ -40,6 +41,7 @@ void TcpXPassAgent::delay_bind_init_all() {
   delay_bind_init_one("min_jitter_");
   delay_bind_init_one("max_jitter_");
   delay_bind_init_one("exp_id_");
+  delay_bind_init_one("xpass_hdr_size_");
 #if CFC_ALGO == CFC_BIC
   delay_bind_init_one("bic_s_min_");
   delay_bind_init_one("bic_s_max_");
@@ -102,6 +104,9 @@ int TcpXPassAgent::delay_bind_dispatch(const char *varName, const char *localNam
     return TCL_OK;
   }
   if (delay_bind(varName, localName, "exp_id_", &exp_id_, tracer)) {
+    return TCL_OK;
+  }
+  if (delay_bind(varName, localName, "xpass_hdr_size_", &xpass_hdr_size_, tracer)) {
     return TCL_OK;
   }
 #if CFC_ALGO == CFC_BIC
@@ -191,6 +196,11 @@ void TcpXPassAgent::recv_credit_request(Packet *pkt) {
       credit_send_state_ = XPASS_SEND_CREDIT_SENDING;     
       break;
   }
+  if(cur_credit_rate_ <= 0) {
+    fprintf(stderr, "cur_credit_rate_ has been set to negative\n");
+    assert(0);
+    exit(1);
+  }
 }
 
 void TcpXPassAgent::recv_credit(Packet *pkt) {
@@ -279,7 +289,7 @@ void TcpXPassAgent::recv_nack(Packet *pkt) {
 
 void TcpXPassAgent::recv_credit_stop(Packet *pkt) {
   fct_ = now() - fst_;
-  fct_timer_.sched(default_credit_stop_timeout_);
+  fct_timer_.resched(default_credit_stop_timeout_);
   send_credit_timer_.force_cancel();
   credit_send_state_ = XPASS_SEND_CLOSE_WAIT;
 }
@@ -299,6 +309,7 @@ void TcpXPassAgent::handle_sender_retransmit() {
   switch (credit_recv_state_) {
     case XPASS_RECV_CREDIT_REQUEST_SENT:
       send(construct_credit_request(), 0);
+      printf("CREDIT_REQUEST RESEND...\n");
       sender_retransmit_timer_.resched(retransmit_timeout_);
       break;
     case XPASS_RECV_CREDIT_STOP_SENT:
@@ -351,6 +362,10 @@ Packet* TcpXPassAgent::construct_credit_request() {
   xph->credit_sent_time_ = now();
 #if AIR
   xph->sendbuffer_ = pkt_remaining();
+  if(xph->sendbuffer_ < 0) {
+    printf("Error: sendbuffer negative\n");
+    assert(0);
+  }
 #endif
   // to measure rtt between credit request and first credit
   // for sender.
@@ -439,8 +454,10 @@ void TcpXPassAgent::send_credit() {
   // send credit.
   send(construct_credit(), 0);
 
-  // calculate delay for next credit transmission.
+ // calculate delay for next credit transmission.
   delay = avg_credit_size / cur_credit_rate_;
+   if(delay<0)
+    printf("Negative delay : %lf, avgsize = %lf, curcredi=%d\n", delay, avg_credit_size, cur_credit_rate_);
   // add jitter
   if (max_jitter_ > min_jitter_) {
     double jitter = (double)rand()/(double)RAND_MAX;
@@ -451,7 +468,7 @@ void TcpXPassAgent::send_credit() {
     fprintf(stderr, "ERROR: max_jitter_ should be larger than min_jitter_");
     exit(1);
   }
-
+  delay = MAX(delay, 0);
   send_credit_timer_.resched(delay);
 }
 

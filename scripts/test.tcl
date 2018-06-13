@@ -14,8 +14,8 @@ set expID 8536
 
 # Output file
 file mkdir "outputs"
-set nt [open outputs/trace.out w]
-set fct_out [open outputs/fct.out w]
+set nt [open outputs/trace_$expID.out w]
+set fct_out [open outputs/fct_$expID.out w]
 puts $fct_out "Flow ID,Flow Size (bytes),Flow Completion Time (secs)"
 close $fct_out
 
@@ -93,11 +93,12 @@ Agent/TCP/FullTcp set spa_thresh_ 3000
 Agent/TCP/FullTcp set interval_ 0
 Agent/TCP/FullTcp set nodelay_ true
 Agent/TCP/FullTcp set state_ 0
+Agent/TCP/FullTcp set exp_id_ $expID
 
 DelayLink set avoidReordering_ true
 
-set agent0 [new Agent/TCP/FullTcp/XPass]
-set agent1 [new Agent/TCP/FullTcp/XPass]
+set agent0 [new Agent/TCP/FullTcp]
+set agent1 [new Agent/TCP/FullTcp]
 
 $agent1 listen
 
@@ -107,6 +108,6 @@ $ns attach-agent $node1 $agent1
 $ns connect $agent0 $agent1
 
 puts "Simulation started."
-$ns at 0.0 "$agent0 advance-bytes 3000"
+$ns at 0.0 "$agent0 advance-bytes 30000"
 $ns at 1.0 "finish"
 $ns run
