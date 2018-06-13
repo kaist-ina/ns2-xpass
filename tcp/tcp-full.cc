@@ -384,7 +384,7 @@ FullTcpAgent::advance_bytes(seq_t nb)
 
 	}
 
-	if (state_ == TCPS_ESTABLISHED)
+ 	if (state_ == TCPS_ESTABLISHED)
 		send_much(0, REASON_NORMAL, maxburst_);
 
   	return;
@@ -1376,7 +1376,8 @@ FullTcpAgent::newack(Packet* pkt)
 		}
 
         }
-	return;
+
+  return;
 }
 
 /*

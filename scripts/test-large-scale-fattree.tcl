@@ -13,11 +13,14 @@ set linkDelayHostTor 0.000004
 set linkDelayTorAggr 0.000004
 set linkDelayAggrCore 0.000004
 set creditQueueCapacity [expr 84*10] ;# Bytes
+set maxCreditBurst [expr 84*2]
 set creditRate 64734895 ;# bytes/sec
 set creditRateHigh [expr 64734895*4] ;# bytes/sec for 40Gbps link
 set baseCreditRate 64734895 ;# bytes/sec
 set K 65
+set KHigh [expr $K*4]
 set B 250
+set BHigh [expr $B*4]
 set B_host 1000
 set numFlow 10000
 set workload "cachefollower" ;# cachefollower, mining, search, webserver
@@ -41,16 +44,14 @@ set numTor 32 ;# number of ToR switches
 set numNode 192 ;# number of nodes
 
 # XPass configurations
-set alpha 0.5
+set alpha 0.0625
 set w_init 0.0625
-set creditBuffer [expr 84*8]
-set maxCreditBurst [expr 84*2]
 set minJitter -0.1
 set maxJitter 0.1
-set minEthernetSize 84
+set minEthernetSize 78
 set maxEthernetSize 1538
-set minCreditSize 76
-set maxCreditSize 92
+set minCreditSize 78
+set maxCreditSize 90
 set xpassHdrSize 78
 set maxPayload [expr $maxEthernetSize-$xpassHdrSize]
 set avgCreditSize [expr ($minCreditSize+$maxCreditSize)/2.0]
@@ -82,26 +83,7 @@ proc finish {} {
   puts "Simulation terminated successfully."
   exit 0
 }
-#$ns trace-all $nt
-
-# Basic parameter settings
-Agent/XPass set min_credit_size_ $minCreditSize
-Agent/XPass set max_credit_size_ $maxCreditSize
-Agent/XPass set min_ethernet_size_ $minEthernetSize
-Agent/XPass set max_ethernet_size_ $maxEthernetSize
-Agent/XPass set max_credit_rate_ $creditBW
-Agent/XPass set alpha_ $alpha
-Agent/XPass set target_loss_scaling_ 0.125
-Agent/XPass set w_init_ $w_init
-Agent/XPass set min_w_ 0.01
-Agent/XPass set retransmit_timeout_ 0.0001
-Agent/XPass set min_jitter_ $minJitter
-Agent/XPass set max_jitter_ $maxJitter
-Agent/XPass set exp_id_ $expID
-
-Queue/XPassRED set credit_limit_ $creditBuffer
-Queue/XPassRED set max_tokens_ $maxCreditBurst
-Queue/XPassRED set token_refresh_rate_ $creditBW
+$ns trace-all $nt
 
 DelayLink set avoidReordering_ true
 $ns rtproto DV
@@ -190,8 +172,8 @@ Queue/DropTail set limit_ $B_host
 
 #Credit Setting
 Queue/XPassRED set credit_limit_ $creditQueueCapacity
-Queue/XPassRED set max_tokens_ [expr 2*84] 
-Queue/XPassRED set token_refresh_rate_ $creditRate
+Queue/XPassRED set max_tokens_ $maxCreditBurst 
+#Queue/XPassRED set token_refresh_rate_ $creditRate
 #RED Setting
 Queue/XPassRED set bytes_ true
 Queue/XPassRED set queue_in_bytes_ true
@@ -201,9 +183,9 @@ Queue/XPassRED set gentle_ false
 Queue/XPassRED set q_weight_ 1.0
 Queue/XPassRED set use_mark_p true
 Queue/XPassRED set mark_p_ 2.0
-Queue/XPassRED set thresh_ $K
-Queue/XPassRED set maxthresh_ $K
-Queue/XPassRED set limit_ $B
+#Queue/XPassRED set thresh_ $K
+#Queue/XPassRED set maxthresh_ $K
+#Queue/XPassRED set limit_ $B
 
 for {set i 0} {$i < $numAggr} {incr i} {
   set coreIndex [expr $i%2]
@@ -212,11 +194,19 @@ for {set i 0} {$i < $numAggr} {incr i} {
     set link_aggr_core [$ns link $dcAggr($i) $dcCore($j)]
     set queue_aggr_core [$link_aggr_core queue]
     $queue_aggr_core set data_limit_ $dataBufferFromAggrToCore
+    $queue_aggr_core set thresh_ $KHigh
+    $queue_aggr_core set maxthresh_ $KHigh
+    $queue_aggr_core set limit_ $BHigh
+    $queue_aggr_core set token_refresh_rate_ $creditRateHigh
 
     $ns simplex-link $dcCore($j) $dcAggr($i) [set linkRateHigh]Gb $linkDelayAggrCore XPassRED
     set link_core_aggr [$ns link $dcCore($j) $dcAggr($i)]
     set queue_core_aggr [$link_core_aggr queue]
     $queue_core_aggr set data_limit_ $dataBufferFromCoreToAggr
+    $queue_core_aggr set thresh_ $KHigh
+    $queue_core_aggr set maxthresh_ $KHigh
+    $queue_core_aggr set limit_ $BHigh
+    $queue_core_aggr set token_refresh_rate_ $creditRateHigh
   }
 }
 
@@ -226,13 +216,23 @@ for {set i 0} {$i < $numTor} {incr i} {
   set aggrIndex [expr $i/4*2]
   for {set j $aggrIndex} {$j <= $aggrIndex+1} {incr j} {
     set cLinkRate $linkRate
+    set cK $K
+    set cB $B
+    set cCreditRate $creditRate
     if {([expr $i/4] == 0) || ([expr $i/4] == 2)} {
       set cLinkRate $linkRateHigh
+      set cK $KHigh
+      set cB $BHigh
+      set cCreditRate $creditRateHigh
     }
     $ns simplex-link $dcTor($i) $dcAggr($j) [set cLinkRate]Gb $linkDelayTorAggr XPassRED
     set link_tor_aggr [$ns link $dcTor($i) $dcAggr($j)]
     set queue_tor_aggr [$link_tor_aggr queue]
     $queue_tor_aggr set data_limit_ $dataBufferFromTorToAggr
+    $queue_tor_aggr set thresh_ $cK
+    $queue_tor_aggr set maxthresh_ $cK
+    $queue_tor_aggr set limit_ $cB
+    $queue_tor_aggr set token_refresh_rate_ $cCreditRate
     $queue_tor_aggr set trace_ 1
     $queue_tor_aggr set qidx_ $traceQueueCnt
     $queue_tor_aggr set exp_idx_ $expID
@@ -245,51 +245,65 @@ for {set i 0} {$i < $numTor} {incr i} {
     set link_aggr_tor [$ns link $dcAggr($j) $dcTor($i)]
     set queue_aggr_tor [$link_aggr_tor queue]
     $queue_aggr_tor set data_limit_ $dataBufferFromAggrToTor
+    $queue_aggr_tor set thresh_ $cK
+    $queue_aggr_tor set maxthresh_ $cK
+    $queue_aggr_tor set limit_ $cB
+    $queue_aggr_tor set token_refresh_rate_ $cCreditRate
   }
 }
 
 for {set i 0} {$i < $numNode} {incr i} {
   set torIndex [expr $i/($numNode/$numTor)]
   set cLinkRate $linkRate
+  set cK $K
+  set cB $B
+  set cCreditRate $creditRate
   if {([expr $torIndex/4] == 0) || ([expr $torIndex/4] == 2)} {
     set cLinkRate $linkRateHigh
+    set cK $KHigh
+    set cB $BHigh
+    set cCreditRate $creditRateHigh
   }
-  $ns simplex-link $dcNode($i) $dcTor($torIndex) [set cLinkRate]Gb [expr $linkDelayHostTor+$hostDelay] XPassRED
+  $ns simplex-link $dcNode($i) $dcTor($torIndex) [set cLinkRate]Gb [expr $linkDelayHostTor+$hostDelay] DropTail
   set link_host_tor [$ns link $dcNode($i) $dcTor($torIndex)]
   set queue_host_tor [$link_host_tor queue]
-  $queue_host_tor set data_limit_ $dataBufferHost
-  $queue_host_tor set trace_ 1
-  $queue_host_tor set qidx_ $traceQueueCnt
-  $queue_tor_aggr set exp_idx_ $expID
-  set ql_out [open "outputs/queue_exp${expID}_$traceQueueCnt.tr" w]
-  puts $ql_out "Now, Qavg, Qmax"
-  close $ql_out
-  set traceQueueCnt [expr $traceQueueCnt + 1]
+  $queue_host_tor set limit_ $cB
 
   $ns simplex-link $dcTor($torIndex) $dcNode($i) [set cLinkRate]Gb $linkDelayHostTor XPassRED
   set link_tor_host [$ns link $dcTor($torIndex) $dcNode($i)]
   set queue_tor_host [$link_tor_host queue]
   $queue_tor_host set data_limit_ $dataBufferFromTorToHost
+  $queue_tor_host set thresh_ $cK
+  $queue_tor_host set maxthresh_ $cK
+  $queue_tor_host set limit_ $cB
+  $queue_tor_host set token_refresh_rate_ $cCreditRate
+  $queue_tor_host set trace_ 1
+  $queue_tor_host set qidx_ $traceQueueCnt
+  $queue_tor_host set exp_idx_ $expID
+  set ql_out [open "outputs/queue_exp${expID}_$traceQueueCnt.tr" w]
+  puts $ql_out "Now, Qavg, Qmax"
+  close $ql_out
+  set traceQueueCnt [expr $traceQueueCnt + 1]
 }
 
 puts "Creating agents and flows..."
 Agent/TCP/FullTcp set exp_id_ $expID
 
-Agent/TCP/FullTcp/XPass set min_credit_size_ 84
-Agent/TCP/FullTcp/XPass set max_credit_size_ 84
-Agent/TCP/FullTcp/XPass set min_ethernet_size_ 84
-Agent/TCP/FullTcp/XPass set max_ethernet_size_ 1538
-Agent/TCP/FullTcp/XPass set max_credit_rate_ $creditRate
+Agent/TCP/FullTcp/XPass set min_credit_size_ $minCreditSize
+Agent/TCP/FullTcp/XPass set max_credit_size_ $maxCreditSize
+Agent/TCP/FullTcp/XPass set min_ethernet_size_ $minEthernetSize
+Agent/TCP/FullTcp/XPass set max_ethernet_size_ $maxEthernetSize
+#Agent/TCP/FullTcp/XPass set max_credit_rate_ $creditRate
 Agent/TCP/FullTcp/XPass set base_credit_rate_ $baseCreditRate
 Agent/TCP/FullTcp/XPass set target_loss_scaling_ 0.125
-Agent/TCP/FullTcp/XPass set alpha_ 1.0
-Agent/TCP/FullTcp/XPass set w_init_ 0.0625
+Agent/TCP/FullTcp/XPass set alpha_ $alpha
+Agent/TCP/FullTcp/XPass set w_init_ $w_init 
 Agent/TCP/FullTcp/XPass set min_w_ 0.01
 Agent/TCP/FullTcp/XPass set retransmit_timeout_ 0.0001
-Agent/TCP/FullTcp/XPass set min_jitter_ -0.1
-Agent/TCP/FullTcp/XPass set max_jitter_ 0.1
+Agent/TCP/FullTcp/XPass set min_jitter_ $minJitter
+Agent/TCP/FullTcp/XPass set max_jitter_ $maxJitter
 Agent/TCP/FullTcp/XPass set exp_id_ $expID
-Agent/TCP/FullTcp/XPass set default_credit_stop_timeout_ 0.002 ;# 2ms
+Agent/TCP/FullTcp/XPass set default_credit_stop_timeout_ 0.001 ;# 1ms
 Agent/TCP/FullTcp/XPass set xpass_hdr_size_ $xpassHdrSize
 
 Agent/TCP set ecn_ 1
@@ -298,13 +312,13 @@ Agent/TCP set packetSize_ 1454
 Agent/TCP set window_ 180
 Agent/TCP set slow_start_restart_ false
 Agent/TCP set tcpTick_ 0.000001
-Agent/TCP set mintro_ 0.004
+Agent/TCP set minrto_ 0.001
 Agent/TCP set rtxcur_init_ 0.001
 Agent/TCP set windowOption_ 0
 Agent/TCP set tcpip_base_hdr_size_ 84
 
 Agent/TCP set dctcp_ true
-Agent/TCP set dctcp_g_ 0.0625
+#Agent/TCP set dctcp_g_ 0.0625
 
 Agent/TCP/FullTcp set segsize_ 1454
 Agent/TCP/FullTcp set segsperack_ 1
@@ -312,8 +326,6 @@ Agent/TCP/FullTcp set spa_thresh_ 3000
 Agent/TCP/FullTcp set interval_ 0
 Agent/TCP/FullTcp set nodelay_ true
 Agent/TCP/FullTcp set state_ 0
-
-DelayLink set avoidReordering_ true
 
 for {set i 0} {$i < $numFlow} {incr i} {
   set src_nodeid [expr int([$randomSrcNodeId value])]
@@ -326,7 +338,6 @@ for {set i 0} {$i < $numFlow} {incr i} {
 
   set src_cluster [expr $src_nodeid/($numNode/$numTor)/4]
   set dst_cluster [expr $dst_nodeid/($numNode/$numTor)/4]
-#puts "src cluster=$src_cluster, dst cluster=$dst_cluster"
 
   if {$src_cluster < [expr 2*$deployStep] && $dst_cluster < [expr 2*$deployStep]} {
 #   puts "cluster : xpass-xpass" 
@@ -339,13 +350,19 @@ for {set i 0} {$i < $numFlow} {incr i} {
   }
   
   if {$src_cluster == 0 || $src_cluster == 2} {
-#   puts "send - rateHig : $creditRateHigh"
     $sender($i) set max_credit_rate_ $creditRateHigh
+    $sender($i) set dctcp_g_ 0.03125
+  } else {
+    $sender($i) set max_credit_rate_ $creditRate
+    $sender($i) set dctcp_g_ 0.0625
   }
 
   if {$dst_cluster == 0 || $dst_cluster == 2} {
-#   puts "recv - rateHig : $creditRateHigh"
     $receiver($i) set max_credit_rate_ $creditRateHigh
+    $receiver($i) set dctcp_g_ 0.03125
+  } else {
+    $receiver($i) set max_credit_rate_ $creditRate
+    $receiver($i) set dctcp_g_ 0.0625
   }
 
   $sender($i) set fid_ $i

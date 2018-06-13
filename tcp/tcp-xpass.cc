@@ -257,6 +257,7 @@ void TcpXPassAgent::recv_credit(Packet *pkt) {
     case XPASS_RECV_CLOSE_WAIT:
       // accumulate credit count to check if credit stop has been delivered
       credit_wasted_++;
+      credit_recved_++;
       break;
     case XPASS_RECV_CLOSED:
       credit_wasted_++;
@@ -309,7 +310,6 @@ void TcpXPassAgent::handle_sender_retransmit() {
   switch (credit_recv_state_) {
     case XPASS_RECV_CREDIT_REQUEST_SENT:
       send(construct_credit_request(), 0);
-      printf("CREDIT_REQUEST RESEND...\n");
       sender_retransmit_timer_.resched(retransmit_timeout_);
       break;
     case XPASS_RECV_CREDIT_STOP_SENT:

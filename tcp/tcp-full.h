@@ -39,7 +39,6 @@
 
 #include "tcp.h"
 #include "rq.h"
-
 /*
  * most of these defines are directly from
  * tcp_var.h or tcp_fsm.h in "real" TCP
