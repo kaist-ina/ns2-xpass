@@ -33,13 +33,13 @@ void XPassRED::expire() {
 void XPassRED::updateTokenBucket() {
   double now = Scheduler::instance().clock();
   double elapsed_time = now - token_bucket_clock_;
-  int new_tokens;
+  int64_t new_tokens;
 
   if (elapsed_time <= 0.0) {
     return;
   }
 
-  new_tokens = (int)(elapsed_time * token_refresh_rate_);
+  new_tokens = (int64_t)(elapsed_time * token_refresh_rate_);
   tokens_ += new_tokens;
   tokens_ = min(tokens_, max_tokens_);
 

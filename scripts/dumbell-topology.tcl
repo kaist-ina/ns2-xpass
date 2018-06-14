@@ -6,7 +6,7 @@ if {$argc < 1} {
 }
 
 # Configurations
-set N 2
+set N 10
 set ALPHA 0.5
 set w_init 0.5
 set linkBW 40Gb
@@ -16,11 +16,69 @@ set creditQueueCapacity [expr 84*2]  ;# bytes
 set dataQueueCapacity [expr 1538*100] ;# bytes
 set hostQueueCapacity [expr 1538*100] ;# bytes
 set maxCrditBurst [expr 84*2] ;# bytes
-set creditRate [expr 64734895*4] ;# bytes / sec
-set creditRate2 [expr 64734895*4] ;# bytes / sec
+set creditRate [expr 64734895] ;# bytes / sec
+set creditRate2 [expr 64734895] ;# bytes / sec
+set baseCreditRate $creditRate
 set interFlowDelay 0 ;# secs
 set expID [expr int([lindex $argv 0])]
+Agent/TCP/FullTcp set exp_id_ $expID
 
+set K 65
+set B 250
+#Credit Setting
+Queue/XPassRED set credit_limit_ $creditQueueCapacity
+Queue/XPassRED set max_tokens_ [expr 2*84] 
+Queue/XPassRED set token_refresh_rate_ $creditRate
+#RED Setting
+Queue/XPassRED set bytes_ true
+Queue/XPassRED set queue_in_bytes_ true
+Queue/XPassRED set mean_pktsize_ 1538
+Queue/XPassRED set setbit_ true
+Queue/XPassRED set gentle_ false
+Queue/XPassRED set q_weight_ 1.0
+Queue/XPassRED set use_mark_p true
+Queue/XPassRED set mark_p_ 2.0
+Queue/XPassRED set thresh_ $K
+Queue/XPassRED set maxthresh_ $K
+Queue/XPassRED set limit_ $B
+Agent/TCP/FullTcp/XPass set min_credit_size_ 84
+Agent/TCP/FullTcp/XPass set max_credit_size_ 84
+Agent/TCP/FullTcp/XPass set min_ethernet_size_ 84
+Agent/TCP/FullTcp/XPass set max_ethernet_size_ 1538
+Agent/TCP/FullTcp/XPass set max_credit_rate_ $creditRate
+Agent/TCP/FullTcp/XPass set base_credit_rate_ $baseCreditRate
+Agent/TCP/FullTcp/XPass set target_loss_scaling_ 0.125
+Agent/TCP/FullTcp/XPass set alpha_ 1.0
+Agent/TCP/FullTcp/XPass set w_init_ 0.0625
+Agent/TCP/FullTcp/XPass set min_w_ 0.01
+Agent/TCP/FullTcp/XPass set retransmit_timeout_ 0.0001
+Agent/TCP/FullTcp/XPass set min_jitter_ -0.1
+Agent/TCP/FullTcp/XPass set max_jitter_ 0.1
+Agent/TCP/FullTcp/XPass set exp_id_ $expID
+Agent/TCP/FullTcp/XPass set default_credit_stop_timeout_ 0.002 ;# 2ms
+
+Agent/TCP set ecn_ 1
+Agent/TCP set old_ecn_ 1
+Agent/TCP set packetSize_ 1454
+Agent/TCP set window_ 180
+Agent/TCP set slow_start_restart_ false
+Agent/TCP set tcpTick_ 0.000001
+Agent/TCP set mintro_ 0.004
+Agent/TCP set rtxcur_init_ 0.001
+Agent/TCP set windowOption_ 0
+Agent/TCP set tcpip_base_hdr_size_ 84
+
+Agent/TCP set dctcp_ true
+Agent/TCP set dctcp_g_ 0.0625
+
+Agent/TCP/FullTcp set segsize_ 1454
+Agent/TCP/FullTcp set segsperack_ 1
+Agent/TCP/FullTcp set spa_thresh_ 3000
+Agent/TCP/FullTcp set interval_ 0
+Agent/TCP/FullTcp set nodelay_ true
+Agent/TCP/FullTcp set state_ 0
+
+DelayLink set avoidReordering_ true
 # Output file
 file mkdir "outputs"
 set nt [open outputs/trace_$expID.out w]
@@ -35,7 +93,7 @@ proc finish {} {
   puts "Simulation terminated successfully."
   exit 0
 }
-#$ns trace-all $nt
+$ns trace-all $nt
 
 puts "Creating Nodes..."
 set left_gateway [$ns node]
@@ -58,11 +116,11 @@ Queue/XPassDropTail set data_limit_ $dataQueueCapacity
 #Queue/XPassDropTail set token_refresh_rate_ $creditRate
 
 for {set i 0} {$i < $N} {incr i} {
-  $ns simplex-link $left_node($i) $left_gateway $inputlinkBW $linkLatency DropTail
-  $ns simplex-link $left_gateway $left_node($i) $inputlinkBW $linkLatency XPassDropTail
+  $ns simplex-link $left_node($i) $left_gateway $inputlinkBW $linkLatency XPassRED
+  $ns simplex-link $left_gateway $left_node($i) $inputlinkBW $linkLatency XPassRED
 
-  $ns simplex-link $right_node($i) $right_gateway $inputlinkBW $linkLatency DropTail
-  $ns simplex-link $right_gateway $right_node($i) $inputlinkBW $linkLatency XPassDropTail
+  $ns simplex-link $right_node($i) $right_gateway $inputlinkBW $linkLatency XPassRED
+  $ns simplex-link $right_gateway $right_node($i) $inputlinkBW $linkLatency XPassRED
 
   if {$i==0} {
     [[$ns link $left_gateway $left_node($i)] queue] set token_refresh_rate_ $creditRate
@@ -73,7 +131,7 @@ for {set i 0} {$i < $N} {incr i} {
   }
 }
 
-$ns duplex-link $left_gateway $right_gateway $linkBW $linkLatency XPassDropTail
+$ns duplex-link $left_gateway $right_gateway $linkBW $linkLatency XPassRED
 [[$ns link $left_gateway $right_gateway] queue] set token_refresh_rate_ $creditRate
 [[$ns link $right_gateway $left_gateway] queue] set token_refresh_rate_ $creditRate
 $ns trace-queue $left_gateway $right_gateway $nt
@@ -85,9 +143,13 @@ Agent/XPass set w_ $w_init
 Agent/XPass set exp_id_ $expID
 
 for {set i 0} {$i < $N} {incr i} {
-  set sender($i) [new Agent/XPass]
-  set receiver($i) [new Agent/XPass]
-
+  if {$i==0} {
+    set sender($i) [new Agent/TCP/FullTcp]
+    set receiver($i) [new Agent/TCP/FullTcp]
+  } else {
+    set sender($i) [new Agent/TCP/FullTcp/XPass]
+    set receiver($i) [new Agent/TCP/FullTcp/XPass]
+  }
   $ns attach-agent $left_node($i) $sender($i)
   $ns attach-agent $right_node($i) $receiver($i)
 
@@ -101,7 +163,7 @@ for {set i 0} {$i < $N} {incr i} {
 
   $sender($i) set fid_ [expr $i]
   $receiver($i) set fid_ [expr $i]
-
+  $receiver($i) listen
   $ns connect $sender($i) $receiver($i)
 }
 
@@ -112,5 +174,5 @@ for {set i 0} {$i < $N} {incr i} {
   set nextTime [expr $nextTime + $interFlowDelay]
 }
 
-$ns at 10.0 "finish"
+$ns at 100.0 "finish"
 $ns run

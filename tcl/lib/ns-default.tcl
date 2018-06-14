@@ -1660,3 +1660,4 @@ Queue/XPassRED set cautious_ 0
 Queue/XPassRED set feng_adaptive_ 0
 Queue/XPassRED set qidx_ 0
 Queue/XPassRED set exp_id_ 0
+Queue/XPassRED set trace_ 0

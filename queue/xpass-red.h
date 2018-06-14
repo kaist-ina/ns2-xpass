@@ -42,7 +42,7 @@ public:
     bind("token_refresh_rate_", &token_refresh_rate_);
     bind("exp_id_", &exp_id_);
     bind("qidx_", &qidx_);
-
+    bind("trace_", &trace_);
     tokens_ = 0;
     token_bucket_clock_ = 0;
 #if LOG_QUEUE
@@ -50,6 +50,7 @@ public:
     last_sample_ = 0.0;
     qavg_ = 0.0;
     qmax_ = 0;
+    LogTimer.resched(LOG_GRAN);
 #endif
   }
   ~XPassRED() {
@@ -65,8 +66,8 @@ protected:
   int credit_q_limit_;
   int data_q_limit_;
 
-  int tokens_;
-  int max_tokens_;
+  int64_t tokens_;
+  int64_t max_tokens_;
   double token_bucket_clock_;
   double token_refresh_rate_;
 

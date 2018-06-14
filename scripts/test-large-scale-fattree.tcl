@@ -22,7 +22,7 @@ set KHigh [expr $K*4]
 set B 250
 set BHigh [expr $B*4]
 set B_host 1000
-set numFlow 10000
+set numFlow 100000
 set workload "cachefollower" ;# cachefollower, mining, search, webserver
 set linkLoad 0.6 ;# ranges from 0.0 to 1.0
 set expID [expr int([lindex $argv 0])]
@@ -44,7 +44,7 @@ set numTor 32 ;# number of ToR switches
 set numNode 192 ;# number of nodes
 
 # XPass configurations
-set alpha 0.0625
+set alpha 0.5; #0.0625
 set w_init 0.0625
 set minJitter -0.1
 set maxJitter 0.1
@@ -83,7 +83,7 @@ proc finish {} {
   puts "Simulation terminated successfully."
   exit 0
 }
-$ns trace-all $nt
+#$ns trace-all $nt
 
 DelayLink set avoidReordering_ true
 $ns rtproto DV
@@ -173,7 +173,7 @@ Queue/DropTail set limit_ $B_host
 #Credit Setting
 Queue/XPassRED set credit_limit_ $creditQueueCapacity
 Queue/XPassRED set max_tokens_ $maxCreditBurst 
-#Queue/XPassRED set token_refresh_rate_ $creditRate
+Queue/XPassRED set token_refresh_rate_ $baseCreditRate
 #RED Setting
 Queue/XPassRED set bytes_ true
 Queue/XPassRED set queue_in_bytes_ true
@@ -235,7 +235,7 @@ for {set i 0} {$i < $numTor} {incr i} {
     $queue_tor_aggr set token_refresh_rate_ $cCreditRate
     $queue_tor_aggr set trace_ 1
     $queue_tor_aggr set qidx_ $traceQueueCnt
-    $queue_tor_aggr set exp_idx_ $expID
+    $queue_tor_aggr set exp_id_ $expID
     set ql_out [open "outputs/queue_exp${expID}_$traceQueueCnt.tr" w]
     puts $ql_out "Now, Qavg, Qmax"
     close $ql_out
@@ -279,7 +279,7 @@ for {set i 0} {$i < $numNode} {incr i} {
   $queue_tor_host set token_refresh_rate_ $cCreditRate
   $queue_tor_host set trace_ 1
   $queue_tor_host set qidx_ $traceQueueCnt
-  $queue_tor_host set exp_idx_ $expID
+  $queue_tor_host set exp_id_ $expID
   set ql_out [open "outputs/queue_exp${expID}_$traceQueueCnt.tr" w]
   puts $ql_out "Now, Qavg, Qmax"
   close $ql_out
@@ -293,7 +293,7 @@ Agent/TCP/FullTcp/XPass set min_credit_size_ $minCreditSize
 Agent/TCP/FullTcp/XPass set max_credit_size_ $maxCreditSize
 Agent/TCP/FullTcp/XPass set min_ethernet_size_ $minEthernetSize
 Agent/TCP/FullTcp/XPass set max_ethernet_size_ $maxEthernetSize
-#Agent/TCP/FullTcp/XPass set max_credit_rate_ $creditRate
+Agent/TCP/FullTcp/XPass set max_credit_rate_ $creditRate
 Agent/TCP/FullTcp/XPass set base_credit_rate_ $baseCreditRate
 Agent/TCP/FullTcp/XPass set target_loss_scaling_ 0.125
 Agent/TCP/FullTcp/XPass set alpha_ $alpha
