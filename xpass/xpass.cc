@@ -198,6 +198,7 @@ void XPassAgent::recv_credit_request(Packet *pkt) {
     case XPASS_SEND_CLOSE_WAIT:
       fct_timer_.force_cancel();
       init();
+      assert(xph->sendbuffer_ > 0);
 #if AIR
       if (xph->sendbuffer_ < 40) {
         lalpha = alpha_ * xph->sendbuffer_ / 40.0;
@@ -304,6 +305,11 @@ void XPassAgent::recv_data(Packet *pkt) {
 
   process_ack(pkt);
   update_rtt(pkt);
+
+  if (credit_send_state_ == XPASS_SEND_CLOSE_WAIT) {
+    fct_ = now() - fst_;
+    fct_timer_.resched(default_credit_stop_timeout_ * 5);
+  }
 }
 
 void XPassAgent::recv_nack(Packet *pkt) {
@@ -312,9 +318,11 @@ void XPassAgent::recv_nack(Packet *pkt) {
     case XPASS_RECV_CREDIT_STOP_SENT:
     case XPASS_RECV_CLOSE_WAIT:
     case XPASS_RECV_CLOSED:
+      t_seqno_ = tcph->ackno();
       send(construct_credit_request(), 0);
       credit_recv_state_ = XPASS_RECV_CREDIT_REQUEST_SENT;
       sender_retransmit_timer_.resched(retransmit_timeout_);
+      break;
     case XPASS_RECV_CREDIT_REQUEST_SENT:
     case XPASS_RECV_CREDIT_RECEIVING:
       // set t_seqno_ for retransmission
@@ -324,7 +332,7 @@ void XPassAgent::recv_nack(Packet *pkt) {
 
 void XPassAgent::recv_credit_stop(Packet *pkt) {
   fct_ = now() - fst_;
-  fct_timer_.sched(default_credit_stop_timeout_);
+  fct_timer_.resched(default_credit_stop_timeout_ * 5);
   send_credit_timer_.force_cancel();
   credit_send_state_ = XPASS_SEND_CLOSE_WAIT;
 }
@@ -406,9 +414,11 @@ Packet* XPassAgent::construct_credit_request() {
 
   xph->credit_seq() = 0;
   xph->credit_sent_time_ = now();
+  assert(pkt_remaining() > 0);
 #if AIR
   xph->sendbuffer_ = pkt_remaining();
 #endif
+
   // to measure rtt between credit request and first credit
   // for sender.
   rtt_ = now();

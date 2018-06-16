@@ -1,8 +1,9 @@
 set ns [new Simulator]
 
-if {$argc < 2} {
-  puts "USAGE: ./ns scripts/large-scale-fattree.tcl {experiment_id} {DEPLOY_STEP}"
+if {$argc < 3} {
+  puts "USAGE: ./ns scripts/large-scale-fattree.tcl {experiment_id} {DEPLOY_STEP} {traffic_locality}"
   puts "DEPLOY_STEP: 0, 25, 50, 75, 100"
+  puts "traffic_locality: 0 - 100 (in percent)"
   exit 1
 }
 # Configurations
@@ -27,8 +28,11 @@ set workload "cachefollower" ;# cachefollower, mining, search, webserver
 set linkLoad 0.6 ;# ranges from 0.0 to 1.0
 set expID [expr int([lindex $argv 0])]
 set deployStep [expr int(int([lindex $argv 1])/25)]
+set trafficLocality [expr int([lindex $argv 2])]
+
 puts "expID = $expID"
 puts "deployStep = $deployStep"
+puts "traffic_locality = ${trafficLocality}%"
 
 # Toplogy configurations
 set dataBufferHost [expr 1000*1538] ;# bytes / port
@@ -111,7 +115,8 @@ if {[string compare $workload "mining"] == 0} {
 }
 
 set overSubscRatio [expr double($numNode/$numTor)/double($numTor/$numAggr)]
-set lambda [expr ($numNode*$linkRate*1000000000*$linkLoad)/($avgFlowSize*8.0/$maxPayload*$maxEthernetSize)]
+#set lambda [expr ($numNode*$linkRate*1000000000*$linkLoad)/($avgFlowSize*8.0/$maxPayload*$maxEthernetSize)]
+set lambda [expr ($numNode*11800000000*$linkLoad)/($avgFlowSize*8.0/$maxPayload*$maxEthernetSize)]
 set avgFlowInterval [expr $overSubscRatio/$lambda]
 
 # Random number generators
@@ -126,6 +131,12 @@ $RNGSrcNodeId seed 17391005
 
 set RNGDstNodeId [new RNG]
 $RNGDstNodeId seed 35010256
+
+set RNGDeterLocal [new RNG]
+$RNGDeterLocal seed 98143256
+
+set RNGLocalOffset [new RNG]
+$RNGLocalOffset seed 1928397
 
 set randomFlowSize [new RandomVariable/Empirical]
 $randomFlowSize use-rng $RNGFlowSize
@@ -145,6 +156,17 @@ set randomDstNodeId [new RandomVariable/Uniform]
 $randomDstNodeId use-rng $RNGDstNodeId
 $randomDstNodeId set min_ 0
 $randomDstNodeId set max_ $numNode
+
+set randomDeterLocal [new RandomVariable/Uniform]
+$randomDeterLocal use-rng $RNGDeterLocal
+$randomDeterLocal set min_ 0
+$randomDeterLocal set max_ 100
+
+set numNodeInCluster 24
+set randomLocalOffset [new RandomVariable/Uniform]
+$randomLocalOffset use-rng $RNGLocalOffset
+$randomLocalOffset set min_ 0
+$randomLocalOffset set max_ $numNodeInCluster
 
 # Node
 puts "Creating nodes..."
@@ -334,6 +356,17 @@ for {set i 0} {$i < $numFlow} {incr i} {
   while {$src_nodeid == $dst_nodeid} {
 #    set src_nodeid [expr int([$randomSrcNodeId value])]
     set dst_nodeid [expr int([$randomDstNodeId value])]
+  }
+
+  set locality [$randomDeterLocal value];
+  if {$locality < $trafficLocality} {
+    set dst_nodeoff [expr int([$randomLocalOffset value])]
+    set dst_nodeid [expr $src_nodeid-($src_nodeid%$numNodeInCluster)+$dst_nodeoff]
+    while {$src_nodeid == $dst_nodeid} {
+      set dst_nodeoff [expr int([$randomLocalOffset value])]
+      set dst_nodeid [expr $src_nodeid-($src_nodeid%$numNodeInCluster)+$dst_nodeoff]
+    }
+#    puts "Intra-cluster Traffic, src=$src_nodeid, dst=$dst_nodeid" 
   }
 
   set src_cluster [expr $src_nodeid/($numNode/$numTor)/4]
