@@ -42,7 +42,7 @@ void TcpXPassAgent::delay_bind_init_all() {
   delay_bind_init_one("max_jitter_");
   delay_bind_init_one("exp_id_");
   delay_bind_init_one("xpass_hdr_size_");
-#if CFC_ALGO == CFC_BIC
+#if CFC_ALG == CFC_BIC
   delay_bind_init_one("bic_s_min_");
   delay_bind_init_one("bic_s_max_");
   delay_bind_init_one("bic_beta_");
@@ -109,7 +109,7 @@ int TcpXPassAgent::delay_bind_dispatch(const char *varName, const char *localNam
   if (delay_bind(varName, localName, "xpass_hdr_size_", &xpass_hdr_size_, tracer)) {
     return TCL_OK;
   }
-#if CFC_ALGO == CFC_BIC
+#if CFC_ALG == CFC_BIC
   if (delay_bind(varName, localName, "bic_s_min_", &bic_s_min_, tracer)) {
     return TCL_OK;
   }
@@ -126,7 +126,7 @@ int TcpXPassAgent::delay_bind_dispatch(const char *varName, const char *localNam
 void TcpXPassAgent::init() {
   w_ = w_init_;
 #if CFC_ALG == CFC_BIC
-  bic_target_rate_ = max_credit_rate_/2;
+  bic_target_rate_ = base_credit_rate_/2;
 #endif
   last_credit_rate_update_ = now();
 }
@@ -174,7 +174,7 @@ void TcpXPassAgent::recv_credit_request(Packet *pkt) {
         lalpha = MAX(lalpha, 0.1);
       }
 #endif
-      cur_credit_rate_ = (int)(lalpha * max_credit_rate_);
+      cur_credit_rate_ = (int)(lalpha * base_credit_rate_);
       // need to start to send credits.
       send_credit();
         
@@ -189,7 +189,7 @@ void TcpXPassAgent::recv_credit_request(Packet *pkt) {
         lalpha = MAX(lalpha, 0.1);
       } 
 #endif
-      cur_credit_rate_ = (int)(lalpha * max_credit_rate_);
+      cur_credit_rate_ = (int)(lalpha * base_credit_rate_);
       fst_ = xph->credit_sent_time();
       // need to start to send credits.
       send_credit();
@@ -546,14 +546,14 @@ void TcpXPassAgent::credit_feedback_control() {
 #elif CFC_ALG == CFC_BIC
   double target_loss;
   int data_received_rate;
-
-  if (cur_credit_rate_ >= base_credit_rate_) {
+ if (cur_credit_rate_ >= base_credit_rate_) {
     target_loss = target_loss_scaling_;
   } else {
     target_loss = (1.0 - cur_credit_rate_/(double)base_credit_rate_) * target_loss_scaling_;
   }
 
   if (loss_rate > target_loss) {
+  
     if (loss_rate >= 1.0) {
       data_received_rate = (int)(avg_credit_size() / rtt_);
     } else {

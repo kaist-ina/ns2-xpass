@@ -1279,6 +1279,11 @@ if [TclObject is-class Agent/TCP/FullTcp] {
 		set open_cwnd_on_pack_ false
 	}
 
+  Agent/TCP/FullTcp/XPass set bic_s_min_ 100000
+  Agent/TCP/FullTcp/XPass set bic_s_max_ 6000000
+  Agent/TCP/FullTcp/XPass set bic_beta_ 0.5
+
+
 }
 
 if [TclObject is-class Agent/TCP/BayFullTcp] {
@@ -1303,7 +1308,6 @@ if [TclObject is-class Agent/TCP/BayFullTcp] {
 	Agent/TCP/BayFullTcp/Sack set sack_option_size_ 2; # bytes in opt hdr
 	Agent/TCP/BayFullTcp/Sack set max_sack_blocks_ 3; # max # of sack blks
 }
-
 # Default values used by wireless simulations
 Agent/Null set sport_           0
 Agent/Null set dport_           0
@@ -1622,6 +1626,10 @@ Agent/XPass set default_credit_stop_timeout_ 0.002 ;# 2ms
 Agent/XPass set min_jitter_ -0.1
 Agent/XPass set max_jitter_ 0.1
 Agent/XPass set exp_id_ 0
+Agent/XPass set bic_s_min_ 100000
+Agent/XPass set bic_s_max_ 6000000
+Agent/XPass set bic_beta_ 0.5
+
 
 Queue/XPassRED set bytes_ true ;		# default changed on 10/11/2004.
 Queue/XPassRED set queue_in_bytes_ true ;	# default changed on 10/11/2004.
@@ -1661,3 +1669,5 @@ Queue/XPassRED set feng_adaptive_ 0
 Queue/XPassRED set qidx_ 0
 Queue/XPassRED set exp_id_ 0
 Queue/XPassRED set trace_ 0
+
+

@@ -54,7 +54,7 @@ void XPassAgent::delay_bind_init_all() {
   delay_bind_init_one("min_jitter_");
   delay_bind_init_one("max_jitter_");
   delay_bind_init_one("exp_id_");
-#if CFC_ALGO == CFC_BIC
+#if CFC_ALG == CFC_BIC
   delay_bind_init_one("bic_s_min_");
   delay_bind_init_one("bic_s_max_");
   delay_bind_init_one("bic_beta_");
@@ -122,7 +122,7 @@ int XPassAgent::delay_bind_dispatch(const char *varName, const char *localName,
   if (delay_bind(varName, localName, "exp_id_", &exp_id_, tracer)) {
     return TCL_OK;
   }
-#if CFC_ALGO == CFC_BIC
+#if CFC_ALG == CFC_BIC
   if (delay_bind(varName, localName, "bic_s_min_", &bic_s_min_, tracer)) {
     return TCL_OK;
   }
@@ -139,7 +139,7 @@ int XPassAgent::delay_bind_dispatch(const char *varName, const char *localName,
 void XPassAgent::init() {
   w_ = w_init_;
 #if CFC_ALG == CFC_BIC
-  bic_target_rate_ = max_credit_rate_/2;
+  bic_target_rate_ = base_credit_rate_/2;
 #endif
   last_credit_rate_update_ = now();
 }
@@ -672,7 +672,7 @@ void XPassAgent::credit_feedback_control() {
   int data_received_rate;
 
   if (cur_credit_rate_ >= base_credit_rate_) {
-    target_loss = target_loss_scaling;
+    target_loss = target_loss_scaling_;
   } else {
     target_loss = (1.0 - cur_credit_rate_/(double)base_credit_rate_) * target_loss_scaling_;
   }

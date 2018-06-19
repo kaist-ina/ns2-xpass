@@ -27,9 +27,21 @@ set expID [expr int([lindex $argv 0])]
 set K 65
 set B 250
 
+Agent/TCP set ecn_ 1
+Agent/TCP set old_ecn_ 1
+Agent/TCP set packetSize_ 1454
+Agent/TCP set window_ 180
+Agent/TCP set slow_start_restart_ false
+Agent/TCP set tcpTick_ 0.000001
+Agent/TCP set minrto_ 0.001
+Agent/TCP set rtxcur_init_ 0.001
+Agent/TCP set windowOption_ 0
+Agent/TCP set tcpip_base_hdr_size_ 84
+
+
 Agent/TCP set dctcp_ true
 Agent/TCP set dctcp_g_ 0.0625
-
+Agent/TCP/FullTcp set tcpip_base_hdr_size_ [expr 1538-1454]
 Agent/TCP/FullTcp set segsize_ 1454
 Agent/TCP/FullTcp set segsperack_ 1
 Agent/TCP/FullTcp set spa_thresh_ 3000
