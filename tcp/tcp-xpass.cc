@@ -171,6 +171,7 @@ void TcpXPassAgent::recv_credit_request(Packet *pkt) {
 #if AIR
       if (xph->sendbuffer_ < 40) {
         lalpha = alpha_ * xph->sendbuffer_ / 40.0;
+        lalpha = MAX(lalpha, 0.1);
       }
 #endif
       cur_credit_rate_ = (int)(lalpha * max_credit_rate_);
@@ -185,6 +186,7 @@ void TcpXPassAgent::recv_credit_request(Packet *pkt) {
 #if AIR
       if (xph->sendbuffer_ < 40) {
         lalpha = alpha_ * xph->sendbuffer_ / 40.0;
+        lalpha = MAX(lalpha, 0.1);
       } 
 #endif
       cur_credit_rate_ = (int)(lalpha * max_credit_rate_);
@@ -231,7 +233,7 @@ void TcpXPassAgent::recv_credit(Packet *pkt) {
       }
 #if ECS
 	 else if (now() - last_credit_recv_update_ >= rtt_) {
-        if (credit_recved_rtt_ >= (2 * pkt_remaining())) {
+        if (credit_recved_rtt_ >= (3 * pkt_remaining())) {
           // Early credit stop
           if (credit_stop_timer_.status() != TIMER_IDLE) {
             fprintf(stderr, "Error: CreditStopTimer seems to be scheduled more than once.\n");

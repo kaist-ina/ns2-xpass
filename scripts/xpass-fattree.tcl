@@ -311,22 +311,22 @@ for {set i 0} {$i < $numNode} {incr i} {
 puts "Creating agents and flows..."
 Agent/TCP/FullTcp set exp_id_ $expID
 
-Agent/TCP/FullTcp/XPass set min_credit_size_ $minCreditSize
-Agent/TCP/FullTcp/XPass set max_credit_size_ $maxCreditSize
-Agent/TCP/FullTcp/XPass set min_ethernet_size_ $minEthernetSize
-Agent/TCP/FullTcp/XPass set max_ethernet_size_ $maxEthernetSize
-Agent/TCP/FullTcp/XPass set max_credit_rate_ $creditRate
-Agent/TCP/FullTcp/XPass set base_credit_rate_ $baseCreditRate
-Agent/TCP/FullTcp/XPass set target_loss_scaling_ 0.125
-Agent/TCP/FullTcp/XPass set alpha_ $alpha
-Agent/TCP/FullTcp/XPass set w_init_ $w_init 
-Agent/TCP/FullTcp/XPass set min_w_ 0.01
-Agent/TCP/FullTcp/XPass set retransmit_timeout_ 0.0001
-Agent/TCP/FullTcp/XPass set min_jitter_ $minJitter
-Agent/TCP/FullTcp/XPass set max_jitter_ $maxJitter
-Agent/TCP/FullTcp/XPass set exp_id_ $expID
-Agent/TCP/FullTcp/XPass set default_credit_stop_timeout_ 0.001 ;# 1ms
-Agent/TCP/FullTcp/XPass set xpass_hdr_size_ $xpassHdrSize
+Agent/XPass set min_credit_size_ $minCreditSize
+Agent/XPass set max_credit_size_ $maxCreditSize
+Agent/XPass set min_ethernet_size_ $minEthernetSize
+Agent/XPass set max_ethernet_size_ $maxEthernetSize
+Agent/XPass set max_credit_rate_ $creditRate
+Agent/XPass set base_credit_rate_ $baseCreditRate
+Agent/XPass set target_loss_scaling_ 0.125
+Agent/XPass set alpha_ $alpha
+Agent/XPass set w_init_ $w_init 
+Agent/XPass set min_w_ 0.01
+Agent/XPass set retransmit_timeout_ 0.0001
+Agent/XPass set min_jitter_ $minJitter
+Agent/XPass set max_jitter_ $maxJitter
+Agent/XPass set exp_id_ $expID
+Agent/XPass set default_credit_stop_timeout_ 0.001 ;# 1ms
+Agent/XPass set xpass_hdr_size_ $xpassHdrSize
 
 Agent/TCP set ecn_ 1
 Agent/TCP set old_ecn_ 1
@@ -373,9 +373,9 @@ for {set i 0} {$i < $numFlow} {incr i} {
   set dst_cluster [expr $dst_nodeid/($numNode/$numTor)/4]
 
   if {$src_cluster < [expr 2*$deployStep] && $dst_cluster < [expr 2*$deployStep]} {
-#   puts "cluster : xpass-xpass" 
-    set sender($i) [new Agent/TCP/FullTcp/XPass]
-    set receiver($i) [new Agent/TCP/FullTcp/XPass]
+   puts "cluster : xpass-xpass" 
+    set sender($i) [new Agent/XPass]
+    set receiver($i) [new Agent/XPass]
   } else {
 #   puts "cluster : dctcp-dctcp"
     set sender($i) [new Agent/TCP/FullTcp]

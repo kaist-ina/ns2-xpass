@@ -198,7 +198,7 @@ void XPassAgent::recv_credit_request(Packet *pkt) {
     case XPASS_SEND_CLOSE_WAIT:
       fct_timer_.force_cancel();
       init();
-      assert(xph->sendbuffer_ > 0);
+    //  assert(xph->sendbuffer_ > 0);
 #if AIR
       if (xph->sendbuffer_ < 40) {
         lalpha = alpha_ * xph->sendbuffer_ / 40.0;

@@ -8,13 +8,13 @@
 #include <assert.h>
 #include <math.h>
 
-#define AIR 1
-#define ECS 1
+#define AIR 0
+#define ECS 0
 
 #define CFC_ORIG 0
 #define CFC_BIC 1
 
-#define CFC_ALG CFL_BIC
+#define CFC_ALG CFL_ORIG
 
 typedef enum XPASS_SEND_STATE_ {
   XPASS_SEND_CLOSED,
