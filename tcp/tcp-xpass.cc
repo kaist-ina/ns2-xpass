@@ -548,7 +548,7 @@ void TcpXPassAgent::credit_feedback_control() {
   int data_received_rate;
 
   if (cur_credit_rate_ >= base_credit_rate_) {
-    target_loss = target_loss_scaling;
+    target_loss = target_loss_scaling_;
   } else {
     target_loss = (1.0 - cur_credit_rate_/(double)base_credit_rate_) * target_loss_scaling_;
   }

@@ -6,6 +6,13 @@
 #include "../queue/queue.h"
 #include "flags.h"
 
+#undef ECS
+#define ECS 1
+#undef AIR
+#define AIR 1
+#undef CFC_ALG
+#define CFC_ALG CFC_BIC
+
 class TcpXPassAgent;
 class TcpXPassSendCreditTimer: public TimerHandler {
 public:

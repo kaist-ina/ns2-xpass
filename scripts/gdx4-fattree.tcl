@@ -24,7 +24,7 @@ set B 250
 set BHigh [expr $B*4]
 set B_host 1000
 set numFlow 10000
-set workload "me" ;# cachefollower, mining, search, webserver
+set workload "cachefollower" ;# cachefollower, mining, search, webserver
 set linkLoad 0.6 ;# ranges from 0.0 to 1.0
 set expID [expr int([lindex $argv 0])]
 set deployStep [expr int(int([lindex $argv 1])/25)]
@@ -435,6 +435,105 @@ for {set i 0} {$i < $numFlow} {incr i} {
   set srcIndex($i) $src_nodeid
   set dstIndex($i) $dst_nodeid
 }
+
+set probeTime $simStartTime
+set simEndTimeEstimated [expr $simStartTime + ($avgFlowInterval * $numFlow)]
+for {set i 0} {$probeTime < $simEndTimeEstimated} {incr i} {
+  set src_nodeid [expr int([$randomSrcNodeId value])]
+  set dst_nodeid [expr int([$randomDstNodeId value])]
+ 
+  while {$src_nodeid == $dst_nodeid} {
+#    set src_nodeid [expr int([$randomSrcNodeId value])]
+    set dst_nodeid [expr int([$randomDstNodeId value])]
+  }
+
+  set locality [$randomDeterLocal value];
+  if {$locality < $trafficLocality} {
+    set dst_nodeoff [expr int([$randomLocalOffset value])]
+    set dst_nodeid [expr $src_nodeid-($src_nodeid%$numNodeInCluster)+$dst_nodeoff]
+    while {$src_nodeid == $dst_nodeid} {
+      set dst_nodeoff [expr int([$randomLocalOffset value])]
+      set dst_nodeid [expr $src_nodeid-($src_nodeid%$numNodeInCluster)+$dst_nodeoff]
+    }
+#    puts "Intra-cluster Traffic, src=$src_nodeid, dst=$dst_nodeid" 
+  }
+
+  set src_cluster [expr $src_nodeid/($numNode/$numTor)/4]
+  set dst_cluster [expr $dst_nodeid/($numNode/$numTor)/4]
+
+  if {$src_cluster < [expr 2*$deployStep] && $dst_cluster < [expr 2*$deployStep]} {
+#   puts "cluster : xpass-xpass" 
+    set senderProbe1($i) [new Agent/TCP/FullTcp/XPass]
+    set receiverProbe1($i) [new Agent/TCP/FullTcp/XPass]
+    set senderProbe2($i) [new Agent/TCP/FullTcp/XPass]
+    set receiverProbe2($i) [new Agent/TCP/FullTcp/XPass]
+  } else {
+#   puts "cluster : dctcp-dctcp"
+    set senderProbe1($i) [new Agent/TCP/FullTcp]
+    set receiverProbe1($i) [new Agent/TCP/FullTcp]
+    set senderProbe2($i) [new Agent/TCP/FullTcp]
+    set receiverProbe2($i) [new Agent/TCP/FullTcp]
+  }
+  
+  if {$src_cluster == 0 || $src_cluster == 2} {
+    $senderProbe1($i) set max_credit_rate_ $creditRateHigh
+    $senderProbe1($i) set dctcp_g_ 0.03125
+    $senderProbe2($i) set max_credit_rate_ $creditRateHigh
+    $senderProbe2($i) set dctcp_g_ 0.03125
+  } else {
+    $senderProbe1($i) set max_credit_rate_ $creditRate
+    $senderProbe1($i) set dctcp_g_ 0.0625
+    $senderProbe2($i) set max_credit_rate_ $creditRate
+    $senderProbe2($i) set dctcp_g_ 0.0625
+  }
+
+  if {$dst_cluster == 0 || $dst_cluster == 2} {
+    $receiverProbe1($i) set max_credit_rate_ $creditRateHigh
+    $receiverProbe1($i) set dctcp_g_ 0.03125
+    $receiverProbe2($i) set max_credit_rate_ $creditRateHigh
+    $receiverProbe2($i) set dctcp_g_ 0.03125
+  } else {
+    $receiverProbe1($i) set max_credit_rate_ $creditRate
+    $receiverProbe1($i) set dctcp_g_ 0.0625
+    $receiverProbe2($i) set max_credit_rate_ $creditRate
+    $receiverProbe2($i) set dctcp_g_ 0.0625
+  }
+
+  $senderProbe1($i) set fid_ [expr $i + $numFlow*10]
+  $senderProbe1($i) set host_id_ $src_nodeid
+  $senderProbe2($i) set fid_ [expr $i + $numFlow*20]
+  $senderProbe2($i) set host_id_ $dst_nodeid
+  $receiverProbe1($i) set fid_ [expr $i + $numFlow*10]
+  $receiverProbe1($i) set host_id_ $dst_nodeid
+  $receiverProbe2($i) set fid_ [expr $i + $numFlow*20]
+  $receiverProbe2($i) set host_id_ $src_nodeid
+ 
+
+  $receiverProbe1($i) listen
+  $receiverProbe2($i) listen
+
+  $ns attach-agent $dcNode($src_nodeid) $senderProbe1($i)
+  $ns attach-agent $dcNode($src_nodeid) $receiverProbe2($i)
+  $ns attach-agent $dcNode($dst_nodeid) $receiverProbe1($i)
+  $ns attach-agent $dcNode($dst_nodeid) $senderProbe2($i)
+  
+  $ns connect $senderProbe1($i) $receiverProbe1($i)
+  $ns connect $receiverProbe2($i) $senderProbe2($i)
+
+  $ns at $simEndTime "$senderProbe1($i) close"
+  $ns at $simEndTime "$receiverProbe1($i) close"
+  $ns at $simEndTime "$senderProbe2($i) close"
+  $ns at $simEndTime "$receiverProbe2($i) close"
+  $ns at $probeTime "$senderProbe1($i) advance-bytes 10000"
+  set probeTime [expr $probeTime + 0.0001]
+  $ns at $probeTime "$senderProbe2($i) advance-bytes 10000000"
+  set probeTime [expr $probeTime + 0.0099]
+  
+  set srcIndex($i) $src_nodeid
+  set dstIndex($i) $dst_nodeid
+}
+
+
 
 set nextTime $simStartTime
 set fidx 0
