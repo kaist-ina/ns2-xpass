@@ -171,7 +171,7 @@ void TcpXPassAgent::recv_credit_request(Packet *pkt) {
 #if AIR
       if (xph->sendbuffer_ < 40) {
         lalpha = alpha_ * xph->sendbuffer_ / 40.0;
-        lalpha = MAX(lalpha, 0.1);
+        lalpha = MAX(lalpha, 0.2);
       }
 #endif
       cur_credit_rate_ = (int)(lalpha * base_credit_rate_);
@@ -186,7 +186,7 @@ void TcpXPassAgent::recv_credit_request(Packet *pkt) {
 #if AIR
       if (xph->sendbuffer_ < 40) {
         lalpha = alpha_ * xph->sendbuffer_ / 40.0;
-        lalpha = MAX(lalpha, 0.1);
+        lalpha = MAX(lalpha, 0.2);
       } 
 #endif
       cur_credit_rate_ = (int)(lalpha * base_credit_rate_);

@@ -14,7 +14,7 @@
 #define CFC_ORIG 0
 #define CFC_BIC 1
 
-#define CFC_ALG CFC_BIC
+#define CFC_ALG CFC_ORIG
 
 typedef enum XPASS_SEND_STATE_ {
   XPASS_SEND_CLOSED,

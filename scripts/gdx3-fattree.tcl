@@ -24,7 +24,7 @@ set B 250
 set BHigh [expr $B*4]
 set B_host 1000
 set numFlow 10000
-set workload "me" ;# cachefollower, mining, search, webserver
+set workload "cachefollower" ;# cachefollower, mining, search, webserver
 set linkLoad 0.6 ;# ranges from 0.0 to 1.0
 set expID [expr int([lindex $argv 0])]
 set deployStep [expr int(int([lindex $argv 1])/25)]
