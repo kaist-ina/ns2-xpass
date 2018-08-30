@@ -113,11 +113,16 @@ public:
                 credit_wasted_(0), credit_recved_rtt_(0), last_credit_recv_update_(0) { }
   virtual int command(int argc, const char*const* argv);
   virtual void recv(Packet*, Handler*);
+	virtual void trace(TracedVar* v);
+	
 protected:
   virtual void delay_bind_init_all();
   virtual int delay_bind_dispatch(const char *varName, const char *localName, TclObject *tracer);
 
-  // credit send state
+
+	virtual void traceVar(TracedVar* v);
+	void traceAll();
+	  // credit send state
   XPASS_SEND_STATE credit_send_state_;
   // credit receive state
   XPASS_RECV_STATE credit_recv_state_;
@@ -149,6 +154,8 @@ protected:
   // should always less than or equal to max_credit_rate_.
   // in Bytes/sec
   int cur_credit_rate_;
+  TracedInt cur_credit_rate_tr_;
+
   // maximum credit rate for 10G NIC.
   int base_credit_rate_;
   // initial cur_credit_rate_ = alpha_ * max_credit_rate_

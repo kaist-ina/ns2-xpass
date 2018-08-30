@@ -59,6 +59,7 @@ void XPassAgent::delay_bind_init_all() {
   delay_bind_init_one("bic_s_max_");
   delay_bind_init_one("bic_beta_");
 #endif
+  delay_bind_init_one("cur_credit_rate_tr_");
   Agent::delay_bind_init_all();
 }
 
@@ -133,6 +134,9 @@ int XPassAgent::delay_bind_dispatch(const char *varName, const char *localName,
     return TCL_OK;
   }
 #endif
+  if (delay_bind(varName, localName, "cur_credit_rate_tr_", &cur_credit_rate_tr_, tracer)) {
+    return TCL_OK;
+  }
   return Agent::delay_bind_dispatch(varName, localName, tracer);
 }
 
@@ -205,6 +209,7 @@ void XPassAgent::recv_credit_request(Packet *pkt) {
       }
 #endif
       cur_credit_rate_ = (int)(lalpha * max_credit_rate_);
+      cur_credit_rate_tr_ = cur_credit_rate_;
       // need to start to send credits.
       send_credit();
         
@@ -219,6 +224,7 @@ void XPassAgent::recv_credit_request(Packet *pkt) {
       } 
 #endif
       cur_credit_rate_ = (int)(lalpha * max_credit_rate_);
+      cur_credit_rate_tr_ = cur_credit_rate_;
       fst_ = xph->credit_sent_time();
       // need to start to send credits.
       send_credit();
@@ -642,7 +648,7 @@ void XPassAgent::credit_feedback_control() {
 
   if (loss_rate > target_loss) {
     // congestion has been detected!
-    if (loss_rate >= 1.0) {
+   if (loss_rate >= 1.0) {
       cur_credit_rate_ = (int)(avg_credit_size() / rtt_);
     } else {
       cur_credit_rate_ = (int)(avg_credit_size()*(credit_total_ - credit_dropped_)
@@ -655,6 +661,7 @@ void XPassAgent::credit_feedback_control() {
 
     w_ = max(w_/2.0, min_w_);
     can_increase_w_ = false;
+   // printf("[CFC] CGST CCR=%10d => %10d, LR=%10lf, TLR=%10lf\n", old_rate, cur_credit_rate_, loss_rate, target_loss);
   }else {
     // there is no congestion.
     if (can_increase_w_) {
@@ -666,6 +673,7 @@ void XPassAgent::credit_feedback_control() {
     if (cur_credit_rate_ < max_credit_rate_) {
       cur_credit_rate_ = (int)(w_*max_credit_rate_ + (1-w_)*cur_credit_rate_);
     }
+    //printf("[CFC] ---- CCR=%10d => %10d, LR=%10lf, TLR=%10lf\n", old_rate, cur_credit_rate_, loss_rate, target_loss);
   }
 #elif CFC_ALG == CFC_BIC
   double target_loss;
@@ -718,8 +726,60 @@ void XPassAgent::credit_feedback_control() {
   if (cur_credit_rate_ < min_rate) {
     cur_credit_rate_ = min_rate;
   }
-
+  cur_credit_rate_tr_ = cur_credit_rate_;
   credit_total_ = 0;
   credit_dropped_ = 0;
   last_credit_rate_update_ = now();
 }
+
+void
+XPassAgent::traceVar(TracedVar* v) 
+{
+	if (!channel_)
+		return;
+
+	double curtime;
+	Scheduler& s = Scheduler::instance();
+	const size_t TCP_WRK_SIZE = 128;
+  char wrk[TCP_WRK_SIZE];
+
+	curtime = &s ? s.clock() : 0;
+	// XXX comparing addresses is faster than comparing names
+/*	if (v == &cwnd_)
+		snprintf(wrk, TCP_WRK_SIZE,
+			 "%-8.7f %-2d %-2d %-2d %-2d %s %-6.3f\n",
+			 curtime, addr(), port(), daddr(), dport(),
+			 v->name(), double(*((TracedDouble*) v))); 
+ 	else if (v == &t_rtt_)
+		snprintf(wrk, TCP_WRK_SIZE,
+			 "%-8.7f %-2d %-2d %-2d %-2d %s %-6.3f\n",
+			 curtime, addr(), port(), daddr(), dport(),
+			 v->name(), int(*((TracedInt*) v))*tcp_tick_); 
+	else if (v == &t_srtt_)
+		snprintf(wrk, TCP_WRK_SIZE,
+			 "%-8.5f %-2d %-2d %-2d %-2d %s %-6.3f\n",
+			 curtime, addr(), port(), daddr(), dport(),
+			 v->name(), 
+			 (int(*((TracedInt*) v)) >> T_SRTT_BITS)*tcp_tick_); 
+	else if (v == &t_rttvar_)
+		snprintf(wrk, TCP_WRK_SIZE,
+			 "%-8.5f %-2d %-2d %-2d %-2d %s %-6.3f\n",
+			 curtime, addr(), port(), daddr(), dport(),
+			 v->name(), 
+			 int(*((TracedInt*) v))*tcp_tick_/4.0); 
+	else*/
+		snprintf(wrk, TCP_WRK_SIZE,
+			 "%-8.7f %-2d %-2d %-2d %-2d %s %d\n",
+			 curtime, addr(), port(), daddr(), dport(),
+			 v->name(), int(*((TracedInt*) v))); 
+
+	(void)Tcl_Write(channel_, wrk, -1);
+}
+
+void
+XPassAgent::trace(TracedVar* v) 
+{
+		traceVar(v);
+}
+
+

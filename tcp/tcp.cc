@@ -380,12 +380,12 @@ TcpAgent::traceVar(TracedVar* v)
 	// XXX comparing addresses is faster than comparing names
 	if (v == &cwnd_)
 		snprintf(wrk, TCP_WRK_SIZE,
-			 "%-8.5f %-2d %-2d %-2d %-2d %s %-6.3f\n",
+			 "%-8.7f %-2d %-2d %-2d %-2d %s %-6.3f\n",
 			 curtime, addr(), port(), daddr(), dport(),
 			 v->name(), double(*((TracedDouble*) v))); 
  	else if (v == &t_rtt_)
 		snprintf(wrk, TCP_WRK_SIZE,
-			 "%-8.5f %-2d %-2d %-2d %-2d %s %-6.3f\n",
+			 "%-8.7f %-2d %-2d %-2d %-2d %s %-6.3f\n",
 			 curtime, addr(), port(), daddr(), dport(),
 			 v->name(), int(*((TracedInt*) v))*tcp_tick_); 
 	else if (v == &t_srtt_)

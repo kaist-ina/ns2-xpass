@@ -1629,7 +1629,7 @@ Agent/XPass set exp_id_ 0
 Agent/XPass set bic_s_min_ 100000
 Agent/XPass set bic_s_max_ 6000000
 Agent/XPass set bic_beta_ 2
-
+Agent/XPass set cur_credit_rate_tr_ 0
 
 Queue/XPassRED set bytes_ true ;		# default changed on 10/11/2004.
 Queue/XPassRED set queue_in_bytes_ true ;	# default changed on 10/11/2004.
