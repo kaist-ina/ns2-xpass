@@ -1315,7 +1315,7 @@ FullTcpAgent::newack(Packet* pkt)
       char foname[40];
       sprintf(foname, "outputs/fct_%d.out", exp_id_);
       FILE *fct_out = fopen(foname,"a");
-      fprintf(fct_out, "%d,%ld,%.10lf\n", fid_, curseq_, now()-fst_);
+      fprintf(fct_out, "%d,%ld,%.10lf,TCP\n", fid_, curseq_, now()-fst_);
       fclose(fct_out);
     }
 	} else if (progress) {

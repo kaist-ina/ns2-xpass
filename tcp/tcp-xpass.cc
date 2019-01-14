@@ -308,7 +308,7 @@ void TcpXPassAgent::handle_fct() {
 
   FILE *fct_out = fopen(foname,"a");
 
-  fprintf(fct_out, "%d,%ld,%.10lf\n", fid_, rcv_nxt_-1, fct_);
+  fprintf(fct_out, "%d,%ld,%.10lf,GDX\n", fid_, rcv_nxt_-1, fct_);
   fclose(fct_out);
   credit_send_state_ = XPASS_SEND_CLOSED;
 }

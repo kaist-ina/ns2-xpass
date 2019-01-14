@@ -206,6 +206,7 @@ void XPassAgent::recv_credit_request(Packet *pkt) {
 #if AIR
       if (xph->sendbuffer_ < 40) {
         lalpha = alpha_ * xph->sendbuffer_ / 40.0;
+	lalpha = lalpha > 0.1 ? 0.1 : lalpha;
       }
 #endif
       cur_credit_rate_ = (int)(lalpha * max_credit_rate_);
@@ -221,6 +222,7 @@ void XPassAgent::recv_credit_request(Packet *pkt) {
 #if AIR
       if (xph->sendbuffer_ < 40) {
         lalpha = alpha_ * xph->sendbuffer_ / 40.0;
+	lalpha = lalpha > 0.1 ? 0.1 : lalpha;
       } 
 #endif
       cur_credit_rate_ = (int)(lalpha * max_credit_rate_);
@@ -261,7 +263,7 @@ void XPassAgent::recv_credit(Packet *pkt) {
       }
 #if ECS
 	 else if (now() - last_credit_recv_update_ >= rtt_) {
-        if (credit_recved_rtt_ >= (2 * pkt_remaining())) {
+        if (credit_recved_rtt_ >= (2.5 * pkt_remaining())) {
           // Early credit stop
           if (credit_stop_timer_.status() != TIMER_IDLE) {
             fprintf(stderr, "Error: CreditStopTimer seems to be scheduled more than once.\n");
@@ -349,7 +351,7 @@ void XPassAgent::handle_fct() {
 
   FILE *fct_out = fopen(foname,"a");
 
-  fprintf(fct_out, "%d,%ld,%.10lf\n", fid_, recv_next_-1, fct_);
+  fprintf(fct_out, "%d,%ld,%.10lf,XPASS\n", fid_, recv_next_-1, fct_);
   fclose(fct_out);
   credit_send_state_ = XPASS_SEND_CLOSED;
 }
